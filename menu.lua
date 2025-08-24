@@ -448,6 +448,9 @@ function VibeMenu.Init(opts)
     return inst
 end
 
+return VibeMenu
+
+
 ----------------------------------------------------------------
 -- Return library table
 ----------------------------------------------------------------
