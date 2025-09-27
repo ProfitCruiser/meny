@@ -247,10 +247,39 @@ Content.Size=UDim2.new(1, -234, 1, -70); Content.Position=UDim2.new(0, 226, 0, 6
 
 -- two-column grid inside pages
 local function newPage(name)
-    local p=Instance.new("Frame", Content); p.Name=name; p.Size=UDim2.fromScale(1,1); p.Visible=false; p.BackgroundTransparency=1
-    local grid=Instance.new("UIGridLayout", p)
-    grid.CellPadding=UDim2.new(0,12,0,12); grid.CellSize=UDim2.new(0.5,-6,0,56)
-    grid.SortOrder=Enum.SortOrder.LayoutOrder
+    local p = Instance.new("ScrollingFrame", Content)
+    p.Name = name
+    p.Size = UDim2.fromScale(1, 1)
+    p.Visible = false
+    p.BackgroundTransparency = 1
+    p.BorderSizePixel = 0
+    p.ScrollBarThickness = 4
+    p.ScrollBarImageColor3 = T.Subtle
+    p.ScrollBarImageTransparency = 0.15
+    p.CanvasSize = UDim2.new(0, 0, 0, 0)
+    p.ScrollingDirection = Enum.ScrollingDirection.Y
+
+    local padding = Instance.new("UIPadding", p)
+    padding.PaddingLeft = UDim.new(0, 4)
+    padding.PaddingRight = UDim.new(0, 8)
+    padding.PaddingTop = UDim.new(0, 4)
+    padding.PaddingBottom = UDim.new(0, 12)
+
+    local grid = Instance.new("UIGridLayout", p)
+    grid.CellPadding = UDim2.new(0, 12, 0, 12)
+    grid.CellSize = UDim2.new(0.5, -6, 0, 56)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+    local function syncCanvas()
+        local contentY = grid.AbsoluteContentSize.Y
+        p.CanvasSize = UDim2.new(0, 0, 0, math.max(contentY + padding.PaddingTop.Offset + padding.PaddingBottom.Offset, 0))
+    end
+
+    grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(syncCanvas)
+    p:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncCanvas)
+    task.defer(syncCanvas)
+
     return p
 end
 
@@ -268,6 +297,7 @@ local function tabButton(text, page)
             end
         end
         page.Visible=true
+        if page:IsA("ScrollingFrame") then page.CanvasPosition = Vector2.new(0,0) end
         TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Accent}):Play()
         TweenService:Create(bar,TweenInfo.new(0.12),{Size=UDim2.new(0,4,1,0)}):Play()
     end)
