@@ -244,6 +244,7 @@ SideList.Padding   = UDim.new(0,8)
 
 local Content = Instance.new("Frame", Root)
 Content.Size=UDim2.new(1, -234, 1, -70); Content.Position=UDim2.new(0, 226, 0, 62); Content.BackgroundTransparency=1
+Content.ClipsDescendants = true
 
 -- two-column grid inside pages
 local function newPage(name)
@@ -253,6 +254,9 @@ local function newPage(name)
     p.Visible = false
     p.BackgroundTransparency = 1
     p.BorderSizePixel = 0
+    p.ClipsDescendants = true
+    p.Active = true
+    p.ScrollingEnabled = true
     p.ScrollBarThickness = 4
     p.ScrollBarImageColor3 = T.Subtle
     p.ScrollBarImageTransparency = 0.15
@@ -273,7 +277,17 @@ local function newPage(name)
 
     local function syncCanvas()
         local contentY = grid.AbsoluteContentSize.Y
-        p.CanvasSize = UDim2.new(0, 0, 0, math.max(contentY + padding.PaddingTop.Offset + padding.PaddingBottom.Offset, 0))
+        local viewportY = p.AbsoluteSize.Y
+        local paddingY = padding.PaddingTop.Offset + padding.PaddingBottom.Offset
+        local totalY = math.max(contentY + paddingY, viewportY)
+        p.CanvasSize = UDim2.new(0, 0, 0, totalY)
+
+        -- clamp current scroll position so we can always scroll back up
+        local maxScroll = math.max(0, totalY - viewportY)
+        local current = p.CanvasPosition
+        if current.Y > maxScroll or current.Y < 0 then
+            p.CanvasPosition = Vector2.new(current.X, math.clamp(current.Y, 0, maxScroll))
+        end
     end
 
     grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(syncCanvas)
