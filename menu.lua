@@ -289,7 +289,11 @@ local function tabButton(text, page)
     b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; corner(b,10); stroke(b,T.Stroke,1,0.35)
     local bar=Instance.new("Frame", b); bar.Size=UDim2.new(0,0,1,0); bar.Position=UDim2.new(0,0,0,0); bar.BackgroundColor3=T.Neon; corner(bar,10)
     b.MouseButton1Click:Connect(function()
-        for _,c in ipairs(Content:GetChildren()) do if c:IsA("Frame") then c.Visible=false end end
+        for _,c in ipairs(Content:GetChildren()) do
+            if c:IsA("GuiObject") then
+                c.Visible = false
+            end
+        end
         for _,x in ipairs(Side:GetChildren()) do
             if x:IsA("TextButton") then
                 TweenService:Create(x,TweenInfo.new(0.12),{BackgroundColor3=T.Ink}):Play()
