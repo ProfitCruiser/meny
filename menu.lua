@@ -269,6 +269,39 @@ local function hideTooltip()
     Tooltip.Visible = false
 end
 
+local tooltipTargets = {}
+local tooltipHeartbeat
+
+local function ensureTooltipHeartbeat()
+    if tooltipHeartbeat then return end
+    tooltipHeartbeat = RunService.Heartbeat:Connect(function()
+        if not next(tooltipTargets) then
+            tooltipHeartbeat:Disconnect()
+            tooltipHeartbeat = nil
+            return
+        end
+
+        local now = os.clock()
+        for object, data in pairs(tooltipTargets) do
+            if not object.Parent then
+                tooltipTargets[object] = nil
+            elseif data.hovering then
+                if now - data.startTime >= data.delay and data.shownToken ~= data.token then
+                    local tipSource = data.textSource
+                    local tip = typeof(tipSource) == "function" and tipSource() or tipSource
+                    tip = trim(tip)
+                    if tip ~= "" then
+                        showTooltip(tip)
+                    else
+                        hideTooltip()
+                    end
+                    data.shownToken = data.token
+                end
+            end
+        end
+    end)
+end
+
 UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
         positionTooltip()
@@ -276,30 +309,48 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local function attachTooltip(object, text)
-    local localToken = 0
-    local hovering = false
-    local function endHover()
-        hovering = false
-        localToken = localToken + 1
+    local entry = {
+        textSource = text,
+        delay = 1,
+        hovering = false,
+        startTime = 0,
+        token = 0,
+        shownToken = 0,
+    }
+
+    tooltipTargets[object] = entry
+    ensureTooltipHeartbeat()
+
+    local function cancelHover()
+        entry.hovering = false
+        entry.startTime = 0
+        entry.token = entry.token + 1
         hideTooltip()
     end
+
     object.MouseEnter:Connect(function()
-        hovering = true
-        localToken = localToken + 1
-        local thisToken = localToken
-        task.delay(1, function()
-            if hovering and thisToken == localToken then
-                local tip = typeof(text) == "function" and text() or text
-                tip = trim(tip)
-                if tip ~= "" then
-                    showTooltip(tip)
-                end
+        entry.hovering = true
+        entry.startTime = os.clock()
+        entry.token = entry.token + 1
+    end)
+
+    object.MouseLeave:Connect(cancelHover)
+    if object:IsA("GuiButton") then
+        object.MouseButton1Down:Connect(cancelHover)
+        object.MouseButton1Up:Connect(cancelHover)
+    else
+        object.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                cancelHover()
             end
         end)
-    end)
-    object.MouseLeave:Connect(endHover)
-    object.MouseButton1Down:Connect(endHover)
-    object.MouseButton1Up:Connect(endHover)
+        object.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                cancelHover()
+            end
+        end)
+    end
+
     if object:IsA("GuiObject") then
         object.MouseMoved:Connect(function()
             if Tooltip.Visible then
@@ -307,6 +358,17 @@ local function attachTooltip(object, text)
             end
         end)
     end
+
+    object.AncestryChanged:Connect(function(_, parent)
+        if parent == nil then
+            tooltipTargets[object] = nil
+            if not next(tooltipTargets) and tooltipHeartbeat then
+                tooltipHeartbeat:Disconnect()
+                tooltipHeartbeat = nil
+            end
+            hideTooltip()
+        end
+    end)
 end
 
 local Top = Instance.new("Frame", Root)
@@ -434,6 +496,7 @@ local function rowBase(parent, name, desc)
     info.TextColor3 = T.Subtle
     info.BackgroundColor3 = T.Ink
     info.AutoButtonColor = false
+    info.Active = true
     info.ZIndex = 5
     corner(info,11)
     stroke(info,T.Stroke,1,0.25)
