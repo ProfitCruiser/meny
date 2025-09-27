@@ -210,6 +210,105 @@ Root.Size=UDim2.fromOffset(980, 600); Root.AnchorPoint=Vector2.new(0.5,0.5); Roo
 Root.BackgroundColor3=T.Card; corner(Root,16); stroke(Root,T.Stroke,1,0.45); pad(Root,12)
 Root.Visible=false
 
+local PanelScale = Instance.new("UIScale", Root)
+PanelScale.Scale = 1
+
+-- shared tooltip for control question marks
+local Tooltip = Instance.new("Frame", App)
+Tooltip.Visible = false
+Tooltip.AnchorPoint = Vector2.new(0, 0)
+Tooltip.Position = UDim2.fromOffset(0, 0)
+Tooltip.Size = UDim2.new(0, 280, 0, 0)
+Tooltip.AutomaticSize = Enum.AutomaticSize.Y
+Tooltip.BackgroundColor3 = T.Panel
+Tooltip.ZIndex = 300
+corner(Tooltip, 8)
+stroke(Tooltip, T.Stroke, 1, 0.2)
+
+local tipPadding = Instance.new("UIPadding", Tooltip)
+tipPadding.PaddingTop = UDim.new(0, 8)
+tipPadding.PaddingBottom = UDim.new(0, 8)
+tipPadding.PaddingLeft = UDim.new(0, 10)
+tipPadding.PaddingRight = UDim.new(0, 10)
+
+local TooltipLabel = Instance.new("TextLabel", Tooltip)
+TooltipLabel.BackgroundTransparency = 1
+TooltipLabel.Font = Enum.Font.Gotham
+TooltipLabel.TextSize = 13
+TooltipLabel.TextColor3 = T.Text
+TooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
+TooltipLabel.TextYAlignment = Enum.TextYAlignment.Top
+TooltipLabel.AutomaticSize = Enum.AutomaticSize.Y
+TooltipLabel.TextWrapped = true
+TooltipLabel.Size = UDim2.new(1, 0, 0, 0)
+
+local function positionTooltip()
+    local mouse = UserInputService:GetMouseLocation()
+    local vp = Camera.ViewportSize
+    local padding = Vector2.new(16, 18)
+    local desiredX = mouse.X + padding.X
+    local desiredY = mouse.Y + padding.Y
+    local size = Tooltip.AbsoluteSize
+    if desiredX + size.X > vp.X - 12 then
+        desiredX = math.max(12, vp.X - size.X - 12)
+    end
+    if desiredY + size.Y > vp.Y - 12 then
+        desiredY = math.max(12, vp.Y - size.Y - 12)
+    end
+    Tooltip.Position = UDim2.fromOffset(desiredX, desiredY)
+end
+
+local function showTooltip(text)
+    TooltipLabel.Text = text
+    TooltipLabel.TextTransparency = 0
+    Tooltip.Visible = true
+    positionTooltip()
+end
+
+local function hideTooltip()
+    Tooltip.Visible = false
+end
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
+        positionTooltip()
+    end
+end)
+
+local function attachTooltip(object, text)
+    local localToken = 0
+    local hovering = false
+    local function endHover()
+        hovering = false
+        localToken = localToken + 1
+        hideTooltip()
+    end
+    object.MouseEnter:Connect(function()
+        hovering = true
+        localToken = localToken + 1
+        local thisToken = localToken
+        task.delay(1, function()
+            if hovering and thisToken == localToken then
+                local tip = typeof(text) == "function" and text() or text
+                tip = trim(tip)
+                if tip ~= "" then
+                    showTooltip(tip)
+                end
+            end
+        end)
+    end)
+    object.MouseLeave:Connect(endHover)
+    object.MouseButton1Down:Connect(endHover)
+    object.MouseButton1Up:Connect(endHover)
+    if object:IsA("GuiObject") then
+        object.MouseMoved:Connect(function()
+            if Tooltip.Visible then
+                positionTooltip()
+            end
+        end)
+    end
+end
+
 local Top = Instance.new("Frame", Root)
 Top.Size=UDim2.new(1, -16, 0, 46); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,12); stroke(Top,T.Stroke,1,0.45); pad(Top,10)
 
@@ -218,8 +317,9 @@ TitleLbl.Size=UDim2.new(0.6,0,1,0); TitleLbl.BackgroundTransparency=1; TitleLbl.
 TitleLbl.Text="ProfitCruiser — Aurora Panel"; TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=18; TitleLbl.TextColor3=T.Text
 
 -- drag
+local draggingEnabled = true
 local dragging,rel=false,Vector2.zero
-Top.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; rel=Root.AbsolutePosition-UserInputService:GetMouseLocation() end end)
+Top.InputBegan:Connect(function(i) if draggingEnabled and i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; rel=Root.AbsolutePosition-UserInputService:GetMouseLocation() end end)
 UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
 RunService.RenderStepped:Connect(function()
     if dragging then
@@ -240,13 +340,56 @@ SideList.Padding   = UDim.new(0,8)
 
 local Content = Instance.new("Frame", Root)
 Content.Size=UDim2.new(1, -234, 1, -70); Content.Position=UDim2.new(0, 226, 0, 62); Content.BackgroundTransparency=1
+Content.ClipsDescendants = true
 
 -- two-column grid inside pages
 local function newPage(name)
-    local p=Instance.new("Frame", Content); p.Name=name; p.Size=UDim2.fromScale(1,1); p.Visible=false; p.BackgroundTransparency=1
-    local grid=Instance.new("UIGridLayout", p)
-    grid.CellPadding=UDim2.new(0,12,0,12); grid.CellSize=UDim2.new(0.5,-6,0,56)
-    grid.SortOrder=Enum.SortOrder.LayoutOrder
+    local p = Instance.new("ScrollingFrame", Content)
+    p.Name = name
+    p.Size = UDim2.fromScale(1, 1)
+    p.Visible = false
+    p.BackgroundTransparency = 1
+    p.BorderSizePixel = 0
+    p.ClipsDescendants = true
+    p.Active = true
+    p.ScrollingEnabled = true
+    p.ScrollBarThickness = 4
+    p.ScrollBarImageColor3 = T.Subtle
+    p.ScrollBarImageTransparency = 0.15
+    p.CanvasSize = UDim2.new(0, 0, 0, 0)
+    p.ScrollingDirection = Enum.ScrollingDirection.Y
+
+    local padding = Instance.new("UIPadding", p)
+    padding.PaddingLeft = UDim.new(0, 4)
+    padding.PaddingRight = UDim.new(0, 8)
+    padding.PaddingTop = UDim.new(0, 4)
+    padding.PaddingBottom = UDim.new(0, 12)
+
+    local grid = Instance.new("UIGridLayout", p)
+    grid.CellPadding = UDim2.new(0, 12, 0, 12)
+    grid.CellSize = UDim2.new(0.5, -6, 0, 56)
+    grid.SortOrder = Enum.SortOrder.LayoutOrder
+    grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+    local function syncCanvas()
+        local contentY = grid.AbsoluteContentSize.Y
+        local viewportY = p.AbsoluteSize.Y
+        local paddingY = padding.PaddingTop.Offset + padding.PaddingBottom.Offset
+        local totalY = math.max(contentY + paddingY, viewportY)
+        p.CanvasSize = UDim2.new(0, 0, 0, totalY)
+
+        -- clamp current scroll position so we can always scroll back up
+        local maxScroll = math.max(0, totalY - viewportY)
+        local current = p.CanvasPosition
+        if current.Y > maxScroll or current.Y < 0 then
+            p.CanvasPosition = Vector2.new(current.X, math.clamp(current.Y, 0, maxScroll))
+        end
+    end
+
+    grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(syncCanvas)
+    p:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncCanvas)
+    task.defer(syncCanvas)
+
     return p
 end
 
@@ -256,7 +399,11 @@ local function tabButton(text, page)
     b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; corner(b,10); stroke(b,T.Stroke,1,0.35)
     local bar=Instance.new("Frame", b); bar.Size=UDim2.new(0,0,1,0); bar.Position=UDim2.new(0,0,0,0); bar.BackgroundColor3=T.Neon; corner(bar,10)
     b.MouseButton1Click:Connect(function()
-        for _,c in ipairs(Content:GetChildren()) do if c:IsA("Frame") then c.Visible=false end end
+        for _,c in ipairs(Content:GetChildren()) do
+            if c:IsA("GuiObject") then
+                c.Visible = false
+            end
+        end
         for _,x in ipairs(Side:GetChildren()) do
             if x:IsA("TextButton") then
                 TweenService:Create(x,TweenInfo.new(0.12),{BackgroundColor3=T.Ink}):Play()
@@ -264,6 +411,7 @@ local function tabButton(text, page)
             end
         end
         page.Visible=true
+        if page:IsA("ScrollingFrame") then page.CanvasPosition = Vector2.new(0,0) end
         TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Accent}):Play()
         TweenService:Create(bar,TweenInfo.new(0.12),{Size=UDim2.new(0,4,1,0)}):Play()
     end)
@@ -271,16 +419,46 @@ local function tabButton(text, page)
 end
 
 -- Controls factory (compact, reused)
-local function rowBase(parent, name)
+local function rowBase(parent, name, desc)
+    local helpText = desc or name
     local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0,56)
     corner(r,10); stroke(r,T.Stroke,1,0.25)
-    local l=Instance.new("TextLabel", r); l.BackgroundTransparency=1; l.Position=UDim2.new(0,12,0,0); l.Size=UDim2.new(1,-140,1,0)
-    l.Text=name; l.TextColor3=T.Text; l.Font=Enum.Font.Gotham; l.TextSize=14; l.TextXAlignment=Enum.TextXAlignment.Left
-    return r,l
+
+    local info = Instance.new("TextButton", r)
+    info.Name = "Info"
+    info.Size = UDim2.fromOffset(22,22)
+    info.Position = UDim2.new(0,12,0.5,-11)
+    info.Text = "?"
+    info.Font = Enum.Font.GothamBold
+    info.TextSize = 16
+    info.TextColor3 = T.Subtle
+    info.BackgroundColor3 = T.Ink
+    info.AutoButtonColor = false
+    info.ZIndex = 5
+    corner(info,11)
+    stroke(info,T.Stroke,1,0.25)
+    info.MouseEnter:Connect(function()
+        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Accent, TextColor3=T.Text}):Play()
+    end)
+    info.MouseLeave:Connect(function()
+        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Ink, TextColor3=T.Subtle}):Play()
+    end)
+    attachTooltip(info, helpText)
+
+    local l=Instance.new("TextLabel", r)
+    l.BackgroundTransparency=1
+    l.Position=UDim2.new(0,40,0,0)
+    l.Size=UDim2.new(1,-196,1,0)
+    l.Text=name
+    l.TextColor3=T.Text
+    l.Font=Enum.Font.Gotham
+    l.TextSize=14
+    l.TextXAlignment=Enum.TextXAlignment.Left
+    return r,l,info
 end
 
-local function mkToggle(parent, name, default, cb)
-    local r,_=rowBase(parent,name)
+local function mkToggle(parent, name, default, cb, desc)
+    local r,_=rowBase(parent,name,desc)
     local sw=Instance.new("Frame", r); sw.Size=UDim2.new(0,68,0,28); sw.Position=UDim2.new(1,-84,0.5,-14); sw.BackgroundColor3=T.Ink; corner(sw,16); stroke(sw,T.Stroke,1,0.35)
     local k=Instance.new("Frame", sw); k.Size=UDim2.new(0,24,0,24); k.Position=UDim2.new(0,2,0.5,-12); k.BackgroundColor3=Color3.fromRGB(235,235,245); corner(k,12)
     local state = default
@@ -295,11 +473,11 @@ local function mkToggle(parent, name, default, cb)
     return {Row=r, Set=set, Get=function() return state end}
 end
 
-local function mkSlider(parent, name, min, max, default, cb, unit)
-    local r,l=rowBase(parent,name)
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,110,1,0); v.Position=UDim2.new(1,-118,0,0)
+local function mkSlider(parent, name, min, max, default, cb, unit, desc)
+    local r,l=rowBase(parent,name,desc)
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,1,0); v.Position=UDim2.new(1,-128,0,0)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-24,0,6); bar.Position=UDim2.new(0,12,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-168,0,6); bar.Position=UDim2.new(0,40,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
@@ -323,25 +501,31 @@ local function mkSlider(parent, name, min, max, default, cb, unit)
 end
 
 -- simple button control (used for Kill Menu)
-local function mkButton(parent, name, onClick, danger)
-    local r,_ = rowBase(parent, name)
+local function mkButton(parent, name, onClick, opts, desc)
+    local r,_ = rowBase(parent, name, desc)
     -- make the label take full width, then place a button pill on the right
     local btn = Instance.new("TextButton", r)
     btn.Size = UDim2.new(0, 120, 0, 30)
     btn.Position = UDim2.new(1, -132, 0.5, -15)
-    btn.Text = danger and "Kill Menu" or "Run"
+    opts = opts or {}
+    local danger = opts.danger
+    local buttonText = opts.buttonText or (danger and "Kill Menu" or "Run")
+    local baseColor = opts.backgroundColor or (danger and Color3.fromRGB(170, 60, 70) or T.Ink)
+    local hoverColor = opts.hoverColor or (danger and Color3.fromRGB(200, 75, 85) or T.Accent)
+    local textColor = opts.textColor or (danger and Color3.fromRGB(255,235,235) or T.Text)
+    btn.Text = buttonText
     btn.Font = Enum.Font.GothamMedium
     btn.TextSize = 14
-    btn.TextColor3 = danger and Color3.fromRGB(255,235,235) or T.Text
-    btn.BackgroundColor3 = danger and Color3.fromRGB(170, 60, 70) or T.Ink
+    btn.TextColor3 = textColor
+    btn.BackgroundColor3 = baseColor
     btn.AutoButtonColor = false
     corner(btn, 10)
-    stroke(btn, danger and Color3.fromRGB(200,80,90) or T.Stroke, 1, 0.35)
+    stroke(btn, (danger and Color3.fromRGB(200,80,90)) or opts.strokeColor or T.Stroke, 1, 0.35)
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = danger and Color3.fromRGB(200, 75, 85) or T.Accent}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = hoverColor}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = danger and Color3.fromRGB(170, 60, 70) or T.Ink}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = baseColor}):Play()
     end)
     btn.MouseButton1Click:Connect(function()
         if onClick then onClick(r) end
@@ -349,12 +533,140 @@ local function mkButton(parent, name, onClick, danger)
     return {Row=r, Button=btn}
 end
 
+local function mkCycle(parent, name, options, default, cb, desc)
+    local r,_ = rowBase(parent, name, desc)
+    local btn = Instance.new("TextButton", r)
+    btn.Size = UDim2.new(0, 120, 0, 30)
+    btn.Position = UDim2.new(1, -132, 0.5, -15)
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 14
+    btn.TextColor3 = T.Text
+    btn.BackgroundColor3 = T.Ink
+    btn.AutoButtonColor = false
+    corner(btn, 10)
+    stroke(btn, T.Stroke, 1, 0.35)
+
+    local normalized = {}
+    for i,opt in ipairs(options) do
+        if typeof(opt) == "table" then
+            normalized[i] = {
+                label = opt.label or opt.text or tostring(opt.value),
+                value = opt.value,
+            }
+        else
+            normalized[i] = {label = tostring(opt), value = opt}
+        end
+    end
+
+    local function findIndexByValue(val)
+        for i,opt in ipairs(normalized) do
+            if opt.value == val then return i end
+        end
+        return nil
+    end
+
+    local idx = 1
+    if default ~= nil then
+        if typeof(default) == "number" and normalized[default] then
+            idx = default
+        else
+            idx = findIndexByValue(default) or idx
+        end
+    end
+
+    local function apply(index)
+        if #normalized == 0 then return end
+        idx = ((index - 1) % #normalized) + 1
+        local opt = normalized[idx]
+        btn.Text = opt.label
+        if cb then cb(opt.value, r) end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        apply(idx + 1)
+    end)
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = T.Accent}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = T.Ink}):Play()
+    end)
+
+    apply(idx)
+
+    return {
+        Row = r,
+        Set = function(value)
+            local targetIndex
+            if typeof(value) == "number" and normalized[value] then
+                targetIndex = value
+            else
+                targetIndex = findIndexByValue(value)
+            end
+            if targetIndex then
+                apply(targetIndex)
+            end
+        end,
+        Get = function()
+            if normalized[idx] then return normalized[idx].value end
+        end,
+    }
+end
+
 --==================== FEATURE STATE ====================--
 local RC={ Enabled=false, OnlyWhileShooting=true, VerticalStrength=0.6, HorizontalStrength=0.0, Smooth=0.35 }
-local AA={ Enabled=false, Strength=0.15, PartName="Head", ShowFOV=false, FOVRadiusPx=180, MaxDistance=250, RequireRMB=false, WallCheck=true }
-local ESP={ Enabled=false, EnemiesOnly=false, UseDistance=true, MaxDistance=1200,
-    EnemyColor=Color3.fromRGB(255,70,70), FriendColor=Color3.fromRGB(0,255,140), NeutralColor=Color3.fromRGB(255,255,0) }
-local Cross={ Enabled=false, Color=Color3.fromRGB(0,255,200), Opacity=0.9, Size=8, Gap=4, Thickness=2, CenterDot=false, DotSize=2, DotOpacity=1 }
+local AA={
+    Enabled=false,
+    Strength=0.15,
+    PartName="Head",
+    ShowFOV=false,
+    FOVRadiusPx=180,
+    MaxDistance=250,
+    MinDistance=0,
+    Deadzone=4,
+    RequireRMB=false,
+    WallCheck=true,
+    DynamicPart=false,
+    StickyAim=false,
+    StickTime=0.35,
+    AdaptiveSmoothing=false,
+    CloseRangeBoost=0.2,
+    Prediction=0,
+    TargetSort="Hybrid",
+    DistanceWeight=0.02,
+    ReactionDelay=0,
+    ReactionJitter=0,
+    VerticalOffset=0,
+}
+local ESP={
+    Enabled=false,
+    EnemiesOnly=false,
+    UseDistance=true,
+    MaxDistance=1200,
+    EnemyColor=Color3.fromRGB(255,70,70),
+    FriendColor=Color3.fromRGB(0,255,140),
+    NeutralColor=Color3.fromRGB(255,255,0),
+    FillTransparency=0.5,
+    OutlineTransparency=0,
+    ThroughWalls=true,
+}
+local Cross={
+    Enabled=false,
+    Color=Color3.fromRGB(0,255,200),
+    Opacity=0.9,
+    Size=8,
+    Gap=4,
+    Thickness=2,
+    CenterDot=false,
+    DotSize=2,
+    DotOpacity=1,
+    UseTeamColor=false,
+    Rainbow=false,
+    RainbowSpeed=1,
+    Pulse=false,
+    PulseSpeed=2.5,
+}
 
 --==================== RUNTIME / DRAW ====================--
 -- FOV ring
@@ -370,42 +682,112 @@ local dot = crossPart()
 local function updCross()
     if not Cross.Enabled then for _,f in ipairs({chL,chR,chU,chD,dot}) do f.Visible=false end return end
     local vp=Camera.ViewportSize; local cx,cy=vp.X*0.5,vp.Y*0.5; local g,s,t=Cross.Gap,Cross.Size,Cross.Thickness
-    local function sty(f,opa) f.BackgroundColor3=Cross.Color; f.BackgroundTransparency=1-(opa or Cross.Opacity) end
+
+    local color = Cross.Color
+    if Cross.Rainbow then
+        local h = (os.clock() * math.max(Cross.RainbowSpeed, 0)) % 1
+        color = Color3.fromHSV(h, 0.9, 1)
+    elseif Cross.UseTeamColor and LocalPlayer.TeamColor then
+        color = LocalPlayer.TeamColor.Color
+    end
+
+    local pulseFactor = 1
+    if Cross.Pulse then
+        local wave = math.sin(os.clock() * math.max(Cross.PulseSpeed, 0.01) * math.pi * 2) * 0.5 + 0.5
+        pulseFactor = 0.6 + 0.4 * wave
+    end
+
+    local baseOpacity = math.clamp(Cross.Opacity * pulseFactor, 0, 1)
+    local dotOpacity = math.clamp(Cross.DotOpacity * pulseFactor, 0, 1)
+
+    local function sty(f,opa)
+        f.BackgroundColor3=color
+        f.BackgroundTransparency=1-math.clamp(opa or baseOpacity,0,1)
+    end
     chU.Size=UDim2.fromOffset(t,s); chU.Position=UDim2.fromOffset(cx - t/2, cy - g - s)
     chD.Size=UDim2.fromOffset(t,s); chD.Position=UDim2.fromOffset(cx - t/2, cy + g)
     chL.Size=UDim2.fromOffset(s,t); chL.Position=UDim2.fromOffset(cx - g - s, cy - t/2)
     chR.Size=UDim2.fromOffset(s,t); chR.Position=UDim2.fromOffset(cx + g, cy - t/2)
     for _,f in ipairs({chL,chR,chU,chD}) do sty(f); f.Visible=true end
-    dot.Size=UDim2.fromOffset(Cross.DotSize,Cross.DotSize); dot.Position=UDim2.fromOffset(cx - Cross.DotSize/2, cy - Cross.DotSize/2); sty(dot, Cross.DotOpacity); dot.Visible=Cross.CenterDot
+    dot.Size=UDim2.fromOffset(Cross.DotSize,Cross.DotSize); dot.Position=UDim2.fromOffset(cx - Cross.DotSize/2, cy - Cross.DotSize/2); sty(dot, dotOpacity); dot.Visible=Cross.CenterDot
 end
 RunService.RenderStepped:Connect(updCross)
 
 -- Targeting helpers
 local function isEnemy(p) if p==LocalPlayer then return false end if LocalPlayer.Team and p.Team then return LocalPlayer.Team~=p.Team end return true end
-local function aimPart(c) local p=c and c:FindFirstChild(AA.PartName); if not(p and p:IsA("BasePart")) then p=c and (c:FindFirstChild("UpperTorso") or c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Head")) end return p end
+local function aimPart(c)
+    if not c then return nil end
+    if AA.DynamicPart then
+        for _,name in ipairs({"Head","UpperTorso","HumanoidRootPart","Torso"}) do
+            local part=c:FindFirstChild(name)
+            if part and part:IsA("BasePart") then return part end
+        end
+    end
+    local p=c:FindFirstChild(AA.PartName)
+    if not(p and p:IsA("BasePart")) then p=(c:FindFirstChild("UpperTorso") or c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Head")) end
+    return p
+end
 local function hasLOS(part,char)
     if not AA.WallCheck then return true end
     local origin=Camera.CFrame.Position; local dir=(part.Position-origin)
     local rp=RaycastParams.new(); rp.FilterType=Enum.RaycastFilterType.Exclude; rp.FilterDescendantsInstances={LocalPlayer.Character, char}; rp.IgnoreWater=true
     return workspace:Raycast(origin, dir, rp)==nil
 end
+local function buildCandidate(pl, my, cx, cy)
+    if not isEnemy(pl) then return nil end
+    local char = pl.Character
+    if not char then return nil end
+    local part = aimPart(char)
+    if not part then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local maxDist = math.max(0, AA.MaxDistance or 0)
+    local minDist = math.clamp(AA.MinDistance or 0, 0, maxDist)
+    local dist = (hrp.Position-my.Position).Magnitude
+    if dist > maxDist or dist < minDist then return nil end
+    local sp,on = Camera:WorldToViewportPoint(part.Position)
+    if not on then return nil end
+    local dx,dy = sp.X-cx, sp.Y-cy
+    local pd = (dx*dx+dy*dy)^0.5
+    if pd>AA.FOVRadiusPx then return nil end
+    if not hasLOS(part, char) then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return {
+        player = pl,
+        character = char,
+        part = part,
+        hrp = hrp,
+        humanoid = hum,
+        distance = dist,
+        pixelDist = pd,
+        screen = Vector2.new(sp.X, sp.Y),
+        velocity = (hrp.AssemblyLinearVelocity or part.AssemblyLinearVelocity or Vector3.zero),
+    }
+end
+local function scoreCandidate(info)
+    local mode = AA.TargetSort or "Hybrid"
+    if mode == "Distance" then
+        return info.distance
+    elseif mode == "Health" then
+        local hum = info.humanoid
+        if hum then return hum.Health end
+        return math.huge
+    elseif mode == "Angle" then
+        return info.pixelDist
+    else
+        local w = math.clamp(AA.DistanceWeight or 0, 0, 0.25)
+        return info.pixelDist + info.distance * w
+    end
+end
 local function getTarget()
     local my=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"); if not my then return nil end
-    local cx,cy=Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2; local best,score
+    local cx,cy=Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2; local best,bScore
     for _,pl in ipairs(Players:GetPlayers()) do
-        if isEnemy(pl) and pl.Character then
-            local part=aimPart(pl.Character); local hrp=pl.Character:FindFirstChild("HumanoidRootPart")
-            if part and hrp then
-                local dist=(hrp.Position-my.Position).Magnitude
-                if dist<=AA.MaxDistance then
-                    local sp,on=Camera:WorldToViewportPoint(part.Position)
-                    if on then
-                        local dx,dy=sp.X-cx, sp.Y-cy; local pd=(dx*dx+dy*dy)^0.5
-                        if pd<=AA.FOVRadiusPx and hasLOS(part, pl.Character) then
-                            local s=pd + dist*0.02; if not score or s<score then best,score=part,s end
-                        end
-                    end
-                end
+        local info = buildCandidate(pl, my, cx, cy)
+        if info then
+            local sc = scoreCandidate(info)
+            if not bScore or sc < bScore then
+                best,bScore = info,sc
             end
         end
     end
@@ -422,19 +804,125 @@ local function applyRC(dt)
     Camera.CFrame = Camera.CFrame:Lerp(des, math.clamp(RC.Smooth,0.05,1))
 end
 
+local stickyTarget, stickyTimer = nil, 0
+local rng = Random.new()
+local lastTargetPart, reactionTimer = nil, 0
+local function validateTarget(info)
+    return info and info.part and info.part:IsDescendantOf(workspace)
+end
+local function refreshTarget(info)
+    if not validateTarget(info) then return nil end
+    local player = info.player
+    if not player then return nil end
+    local char = player.Character
+    if not char then return nil end
+    info.character = char
+    info.part = info.part and info.part.Parent and info.part or aimPart(char)
+    if not info.part then return nil end
+    info.hrp = char:FindFirstChild("HumanoidRootPart")
+    if not info.hrp then return nil end
+    info.humanoid = char:FindFirstChildOfClass("Humanoid")
+    local my = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not my then return nil end
+    local maxDist = math.max(0, AA.MaxDistance or 0)
+    local minDist = math.clamp(AA.MinDistance or 0, 0, maxDist)
+    info.distance = (info.hrp.Position - my.Position).Magnitude
+    if info.distance > maxDist or info.distance < minDist then return nil end
+    local sp,on = Camera:WorldToViewportPoint(info.part.Position)
+    info.screen = Vector2.new(sp.X, sp.Y)
+    local cx,cy = Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2
+    local dx,dy = sp.X-cx, sp.Y-cy
+    info.pixelDist = (dx*dx+dy*dy)^0.5
+    if AA.WallCheck and not hasLOS(info.part, char) then return nil end
+    info.onScreen = on
+    info.velocity = (info.hrp.AssemblyLinearVelocity or info.part.AssemblyLinearVelocity or Vector3.zero)
+    return info
+end
+
 -- Main render
 RunService.RenderStepped:Connect(function(dt)
+    local fovRadius = math.max(0, AA.FOVRadiusPx or 0)
     FOV.Visible = (AA.Enabled and AA.ShowFOV)
-    FOV.Size    = UDim2.fromOffset(AA.FOVRadiusPx*2, AA.FOVRadiusPx*2)
+    FOV.Size    = UDim2.fromOffset(fovRadius*2, fovRadius*2)
 
-    if AA.Enabled and (not AA.RequireRMB or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
-        local t = getTarget()
-        if t then
-            local pos=Camera.CFrame.Position
-            local des=CFrame.lookAt(pos, t.Position)
-            local alpha=math.clamp(AA.Strength + dt*0.5, 0, 1)
-            Camera.CFrame = Camera.CFrame:Lerp(des, alpha)
+    local aiming = AA.Enabled and (not AA.RequireRMB or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+    if aiming then
+        local candidate = getTarget()
+        if AA.StickyAim then
+            if candidate then
+                stickyTarget = candidate
+                stickyTimer = AA.StickTime
+            else
+                stickyTimer = math.max(0, stickyTimer - dt)
+                if stickyTimer <= 0 then
+                    stickyTarget = nil
+                end
+            end
+        else
+            stickyTarget = nil
+            stickyTimer = 0
         end
+
+        if stickyTarget then
+            stickyTarget = refreshTarget(stickyTarget)
+            if not stickyTarget then
+                stickyTimer = 0
+            end
+        end
+
+        local targetInfo = stickyTarget or candidate
+        if targetInfo and not validateTarget(targetInfo) then
+            targetInfo = nil
+            if stickyTarget and not validateTarget(stickyTarget) then
+                stickyTarget = nil
+                stickyTimer = 0
+            end
+        end
+
+        if targetInfo then
+            if targetInfo.part ~= lastTargetPart then
+                lastTargetPart = targetInfo.part
+                local delay = math.max(0, AA.ReactionDelay or 0)
+                local jitter = math.max(0, AA.ReactionJitter or 0)
+                if jitter > 0 then
+                    delay = delay + rng:NextNumber(0, jitter)
+                end
+                reactionTimer = delay
+            end
+
+            if reactionTimer > 0 then
+                reactionTimer = math.max(0, reactionTimer - dt)
+            else
+                local pos = Camera.CFrame.Position
+                local targetPos = targetInfo.part.Position + Vector3.new(0, AA.VerticalOffset or 0, 0)
+                if AA.Prediction > 0 then
+                    targetPos = targetPos + targetInfo.velocity * math.clamp(AA.Prediction, 0, 1.5)
+                end
+                local des = CFrame.lookAt(pos, targetPos)
+                local alpha = math.clamp(AA.Strength + dt*0.5, 0, 1)
+                if AA.AdaptiveSmoothing then
+                    local normalized = 1 - math.clamp((targetInfo.distance or 0) / math.max(AA.MaxDistance, 1), 0, 1)
+                    alpha = math.clamp(alpha + normalized * AA.CloseRangeBoost, 0, 1)
+                end
+
+                local deadzone = math.max(0, AA.Deadzone or 0)
+                if deadzone > 0 then
+                    local closeness = (targetInfo.pixelDist - deadzone) / math.max(deadzone, 1)
+                    if closeness > 0 then
+                        local scale = math.clamp(closeness, 0.05, 1)
+                        Camera.CFrame = Camera.CFrame:Lerp(des, math.clamp(alpha * scale, 0, 1))
+                    end
+                else
+                    Camera.CFrame = Camera.CFrame:Lerp(des, alpha)
+                end
+            end
+        else
+            lastTargetPart = nil
+            reactionTimer = 0
+        end
+    else
+        lastTargetPart = nil
+        reactionTimer = 0
     end
     applyRC(dt)
 end)
@@ -445,9 +933,9 @@ local function hl(model)
     if not h then
         h = Instance.new("Highlight")
         h.Name = "_HL_"
-        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        h.FillTransparency = 0.5 -- more visible
-        h.OutlineTransparency = 0
+        h.DepthMode = ESP.ThroughWalls and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+        h.FillTransparency = ESP.FillTransparency
+        h.OutlineTransparency = ESP.OutlineTransparency
         h.Parent = model
     end
     -- make sure it adorns the whole character even if parent/rig is unusual
@@ -463,6 +951,9 @@ local function espTick(p)
     if show and ESP.EnemiesOnly then local e=isEnemyESP(p); show=(e==true) end
     if show and ESP.UseDistance then show=distTo(c)<=ESP.MaxDistance end
     h.Enabled=show; if not show then return end
+    h.DepthMode = ESP.ThroughWalls and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+    h.FillTransparency = math.clamp(ESP.FillTransparency, 0, 1)
+    h.OutlineTransparency = math.clamp(ESP.OutlineTransparency, 0, 1)
     local e=isEnemyESP(p)
     if e==true then h.FillColor=ESP.EnemyColor; h.OutlineColor=ESP.EnemyColor
     elseif e==false then h.FillColor=ESP.FriendColor; h.OutlineColor=ESP.FriendColor
@@ -488,47 +979,113 @@ tabButton("Config", ConfP)
 AimbotP.Visible = true
 
 -- Aimbot block
-mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end)
-mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end)
-mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end)
-mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end)
-mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px")
-mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end)
-mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs")
+mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Turns the aimbot feature on or off.")
+mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only activates the aimbot while the right mouse button is held down.")
+mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Skips targets that are blocked by walls or other geometry.")
+mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Displays the aiming field-of-view circle on your screen.")
+mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Sets the radius of the aim assist field-of-view circle in pixels.")
+mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px", "Defines an inner deadzone where the aimbot will not move the camera.")
+mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Controls how strongly the camera lerps toward the target (lower means snappier).")
+mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Limits aiming to targets within this distance.")
+mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs", "Ignores targets that are closer than this distance.")
+local targetPriority = mkCycle(AimbotP,"Target Priority", {
+    {label="Hybrid (angle+distance)", value="Hybrid"},
+    {label="Closest Angle", value="Angle"},
+    {label="Closest Distance", value="Distance"},
+    {label="Lowest Health", value="Health"},
+}, AA.TargetSort, function(val) AA.TargetSort=val end, "Chooses how potential targets are ranked before aiming.")
+local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end,nil, "Adjusts how much distance influences the hybrid priority mode.")
+local dynamicPartToggle
+dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end, "Automatically chooses which body part to aim at based on target movement.")
+local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end, "Selects the specific body part to aim at when auto selection is disabled.")
+local stickyToggle = mkToggle(AimbotP,"Sticky Aim (keep last target)", AA.StickyAim, function(v)
+    AA.StickyAim=v
+    if not v then stickyTarget=nil; stickyTimer=0 end
+end, "Keeps following the most recent target for a short period even if they leave the FOV.")
+local stickyDuration = mkSlider(AimbotP,"Sticky Duration", 0.1, 1.5, AA.StickTime, function(x)
+    AA.StickTime=x
+    stickyTimer = math.min(stickyTimer, AA.StickTime)
+end,"s", "How long sticky aim should hold onto the previous target.")
+local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s", "Adds a delay before the aimbot begins to adjust toward a target.")
+local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s", "Adds random variation to the reaction delay for a more human feel.")
+local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end, "Boosts smoothing strength as enemies move closer to you.")
+local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end,nil, "Amount of extra smoothing applied when targets are nearby.")
+local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s", "Predicts where moving targets will be after this many seconds.")
+local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs", "Shifts the aim point up or down relative to the target.")
 
 -- Recoil sub-section
-local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end)
-local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end)
-local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end)
-local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end)
-local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end)
+local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
+local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
+local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Sets how much vertical recoil is counteracted.")
+local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Sets how much horizontal recoil is counteracted.")
+local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
 local function refreshRCUI()
     local on=RC.Enabled
     setInteractable(rcShoot.Row,on); setInteractable(rcV.Row,on); setInteractable(rcH.Row,on); setInteractable(rcS.Row,on)
+    setInteractable(stickyDuration.Row, AA.StickyAim)
+    setInteractable(closeBoost.Row, AA.AdaptiveSmoothing)
+    if partCycle and partCycle.Row then setInteractable(partCycle.Row, not AA.DynamicPart) end
+    if reactionJitter and reactionJitter.Row then setInteractable(reactionJitter.Row, (AA.ReactionDelay or 0) > 0) end
+    if distanceWeight and distanceWeight.Row then setInteractable(distanceWeight.Row, (AA.TargetSort or "Hybrid") == "Hybrid") end
 end
 RunService.RenderStepped:Connect(refreshRCUI)
 
 -- ESP
-mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end)
-mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end)
-mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end)
-mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs")
+mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turns highlight ESP visuals on or off.")
+mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Only shows ESP highlights on enemy players.")
+mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Restricts ESP to players within the max distance slider.")
+mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Sets the farthest distance that ESP highlights will appear.")
+mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end, "Forces highlight outlines to show even through walls.")
+mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end,nil, "Adjusts how solid the ESP highlight fill appears.")
+mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end,nil, "Adjusts how visible the ESP outline is.")
 
 -- Visuals
-local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end)
-mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end)
-mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end)
-mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end)
-mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end)
-local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end)
-local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end)
-local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end)
+local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Shows or hides the custom crosshair overlay.")
+mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Sets how transparent the crosshair appears.")
+mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Controls the overall length of the crosshair lines.")
+mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Adjusts the gap between the crosshair arms and the center.")
+mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Changes how thick each crosshair arm is.")
+local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Adds a dot to the middle of the crosshair.")
+local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Sets the size of the center dot.")
+local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Controls the transparency of the center dot.")
+local teamColorToggle
+local rainbowToggle
+teamColorToggle = mkToggle(VisualP,"Use Team Color", Cross.UseTeamColor, function(v)
+    Cross.UseTeamColor=v
+    if v and rainbowToggle then
+        Cross.Rainbow=false
+        rainbowToggle.Set(false)
+    end
+    updCross()
+end, "Applies your current team color to the crosshair.")
+rainbowToggle = mkToggle(VisualP,"Rainbow Cycle", Cross.Rainbow, function(v)
+    Cross.Rainbow=v
+    if v and teamColorToggle then
+        Cross.UseTeamColor=false
+        teamColorToggle.Set(false)
+    end
+    updCross()
+end, "Cycles crosshair colors through a rainbow gradient.")
+local rainbowSpeed = mkSlider(VisualP,"Rainbow Speed", 0.2, 3, Cross.RainbowSpeed, function(x) Cross.RainbowSpeed=x; updCross() end,nil, "Controls how quickly the rainbow effect animates.")
+local pulseToggle = mkToggle(VisualP,"Pulse Opacity", Cross.Pulse, function(v) Cross.Pulse=v; updCross() end, "Makes the crosshair fade in and out repeatedly.")
+local pulseSpeed = mkSlider(VisualP,"Pulse Speed", 0.5, 5, Cross.PulseSpeed, function(x) Cross.PulseSpeed=x; updCross() end,nil, "Sets the speed of the crosshair opacity pulse.")
 RunService.RenderStepped:Connect(function()
     local on=Cross.CenterDot; setInteractable(dotS.Row,on); setInteractable(dotO.Row,on)
+    if rainbowSpeed then setInteractable(rainbowSpeed.Row, Cross.Rainbow) end
+    if pulseSpeed then setInteractable(pulseSpeed.Row, Cross.Pulse) end
 end)
 
 -- Misc
-mkToggle(MiscP,"Press K to toggle UI", true, function() end)
+mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Reminder that you can press K to hide or show the panel.")
+local dragToggle = mkToggle(MiscP,"Allow Dragging", true, function(v)
+    draggingEnabled = v
+    if not v then dragging=false end
+end, "Enables dragging the window around the screen.")
+local centerBtn = mkButton(MiscP, "Center Panel", function()
+    Root.Position = UDim2.fromScale(0.5,0.5)
+    dragging = false
+end, {buttonText="Center"}, "Recenters the panel on your screen.")
+local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x", "Changes the overall size of the menu UI.")
 
 -- Kill Menu logic
 local function killMenu()
@@ -538,11 +1095,13 @@ local function killMenu()
     if SuccessGui then SuccessGui.Enabled = false end
     if AA_GUI then AA_GUI.Enabled = false end
     if CrossGui then CrossGui.Enabled = false end
+    Tooltip.Visible = false
     -- remove blur
     TweenService:Create(Blur, TweenInfo.new(0.15), {Size = 0}):Play()
     Blur.Enabled = false
     -- disable features so runtime loops render nothing
     AA.Enabled=false; RC.Enabled=false; ESP.Enabled=false; Cross.Enabled=false; updCross()
+    stickyTarget=nil; stickyTimer=0
     -- clean existing highlights
     for _,pl in ipairs(Players:GetPlayers()) do
         local ch = pl.Character
@@ -557,7 +1116,7 @@ UserInputService.InputBegan:Connect(function(i)
 end)
 
 -- Button to kill menu
-mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, true)
+mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, {danger=true, buttonText="Kill Menu"}, "Completely closes the UI and disables every feature until re-executed.")
 
 -- Config / profiles
 local BASE="ProfitCruiser"; local PROF=BASE.."/Profiles"; local MODE="memory"; local MEM=rawget(_G,"PC_ProfileStore") or {}; _G.PC_ProfileStore=MEM
@@ -569,8 +1128,8 @@ local function apply(s) if not s then return end deep(RC,s.RC or {}); deep(AA,s.
 local function save(name) local ok,data=pcall(function() return HttpService:JSONEncode(gather()) end); if not ok then return false,"encode" end if MODE=="filesystem" then local p=PROF.."/"..name..".json"; local s,err=pcall(function() writefile(p,data) end); return s,(s and nil or tostring(err)) else MEM[name]=data; return true end end
 local function load(name) if MODE=="filesystem" then local p=PROF.."/"..name..".json"; if not (isfile and isfile(p)) then return false,"missing" end local ok,raw=pcall(function() return readfile(p) end); if not ok then return false,"read" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true else local raw=MEM[name]; if not raw then return false,"missing" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true end end
 
-local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end)
-local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end)
+local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Saves your current settings into the Default profile slot.")
+local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Loads the Default profile back into all features.")
 
 -- Show panel when gate closes (only if allowed by flow)
 Gate:GetPropertyChangedSignal("Enabled"):Connect(function()
