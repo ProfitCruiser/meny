@@ -497,6 +497,8 @@ local AA={
     ShowFOV=false,
     FOVRadiusPx=180,
     MaxDistance=250,
+    MinDistance=0,
+    Deadzone=4,
     RequireRMB=false,
     WallCheck=true,
     DynamicPart=false,
@@ -505,6 +507,11 @@ local AA={
     AdaptiveSmoothing=false,
     CloseRangeBoost=0.2,
     Prediction=0,
+    TargetSort="Hybrid",
+    DistanceWeight=0.02,
+    ReactionDelay=0,
+    ReactionJitter=0,
+    VerticalOffset=0,
 }
 local ESP={
     Enabled=false,
@@ -600,23 +607,61 @@ local function hasLOS(part,char)
     local rp=RaycastParams.new(); rp.FilterType=Enum.RaycastFilterType.Exclude; rp.FilterDescendantsInstances={LocalPlayer.Character, char}; rp.IgnoreWater=true
     return workspace:Raycast(origin, dir, rp)==nil
 end
+local function buildCandidate(pl, my, cx, cy)
+    if not isEnemy(pl) then return nil end
+    local char = pl.Character
+    if not char then return nil end
+    local part = aimPart(char)
+    if not part then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    local maxDist = math.max(0, AA.MaxDistance or 0)
+    local minDist = math.clamp(AA.MinDistance or 0, 0, maxDist)
+    local dist = (hrp.Position-my.Position).Magnitude
+    if dist > maxDist or dist < minDist then return nil end
+    local sp,on = Camera:WorldToViewportPoint(part.Position)
+    if not on then return nil end
+    local dx,dy = sp.X-cx, sp.Y-cy
+    local pd = (dx*dx+dy*dy)^0.5
+    if pd>AA.FOVRadiusPx then return nil end
+    if not hasLOS(part, char) then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return {
+        player = pl,
+        character = char,
+        part = part,
+        hrp = hrp,
+        humanoid = hum,
+        distance = dist,
+        pixelDist = pd,
+        screen = Vector2.new(sp.X, sp.Y),
+        velocity = (hrp.AssemblyLinearVelocity or part.AssemblyLinearVelocity or Vector3.zero),
+    }
+end
+local function scoreCandidate(info)
+    local mode = AA.TargetSort or "Hybrid"
+    if mode == "Distance" then
+        return info.distance
+    elseif mode == "Health" then
+        local hum = info.humanoid
+        if hum then return hum.Health end
+        return math.huge
+    elseif mode == "Angle" then
+        return info.pixelDist
+    else
+        local w = math.clamp(AA.DistanceWeight or 0, 0, 0.25)
+        return info.pixelDist + info.distance * w
+    end
+end
 local function getTarget()
     local my=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"); if not my then return nil end
-    local cx,cy=Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2; local best,score
+    local cx,cy=Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2; local best,bScore
     for _,pl in ipairs(Players:GetPlayers()) do
-        if isEnemy(pl) and pl.Character then
-            local part=aimPart(pl.Character); local hrp=pl.Character:FindFirstChild("HumanoidRootPart")
-            if part and hrp then
-                local dist=(hrp.Position-my.Position).Magnitude
-                if dist<=AA.MaxDistance then
-                    local sp,on=Camera:WorldToViewportPoint(part.Position)
-                    if on then
-                        local dx,dy=sp.X-cx, sp.Y-cy; local pd=(dx*dx+dy*dy)^0.5
-                        if pd<=AA.FOVRadiusPx and hasLOS(part, pl.Character) then
-                            local s=pd + dist*0.02; if not score or s<score then best,score=part,s end
-                        end
-                    end
-                end
+        local info = buildCandidate(pl, my, cx, cy)
+        if info then
+            local sc = scoreCandidate(info)
+            if not bScore or sc < bScore then
+                best,bScore = info,sc
             end
         end
     end
@@ -634,16 +679,48 @@ local function applyRC(dt)
 end
 
 local stickyTarget, stickyTimer = nil, 0
-local function validateTarget(part)
-    return part and part:IsDescendantOf(workspace)
+local rng = Random.new()
+local lastTargetPart, reactionTimer = nil, 0
+local function validateTarget(info)
+    return info and info.part and info.part:IsDescendantOf(workspace)
+end
+local function refreshTarget(info)
+    if not validateTarget(info) then return nil end
+    local player = info.player
+    if not player then return nil end
+    local char = player.Character
+    if not char then return nil end
+    info.character = char
+    info.part = info.part and info.part.Parent and info.part or aimPart(char)
+    if not info.part then return nil end
+    info.hrp = char:FindFirstChild("HumanoidRootPart")
+    if not info.hrp then return nil end
+    info.humanoid = char:FindFirstChildOfClass("Humanoid")
+    local my = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not my then return nil end
+    local maxDist = math.max(0, AA.MaxDistance or 0)
+    local minDist = math.clamp(AA.MinDistance or 0, 0, maxDist)
+    info.distance = (info.hrp.Position - my.Position).Magnitude
+    if info.distance > maxDist or info.distance < minDist then return nil end
+    local sp,on = Camera:WorldToViewportPoint(info.part.Position)
+    info.screen = Vector2.new(sp.X, sp.Y)
+    local cx,cy = Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2
+    local dx,dy = sp.X-cx, sp.Y-cy
+    info.pixelDist = (dx*dx+dy*dy)^0.5
+    if AA.WallCheck and not hasLOS(info.part, char) then return nil end
+    info.onScreen = on
+    info.velocity = (info.hrp.AssemblyLinearVelocity or info.part.AssemblyLinearVelocity or Vector3.zero)
+    return info
 end
 
 -- Main render
 RunService.RenderStepped:Connect(function(dt)
+    local fovRadius = math.max(0, AA.FOVRadiusPx or 0)
     FOV.Visible = (AA.Enabled and AA.ShowFOV)
-    FOV.Size    = UDim2.fromOffset(AA.FOVRadiusPx*2, AA.FOVRadiusPx*2)
+    FOV.Size    = UDim2.fromOffset(fovRadius*2, fovRadius*2)
 
-    if AA.Enabled and (not AA.RequireRMB or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)) then
+    local aiming = AA.Enabled and (not AA.RequireRMB or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2))
+    if aiming then
         local candidate = getTarget()
         if AA.StickyAim then
             if candidate then
@@ -651,7 +728,7 @@ RunService.RenderStepped:Connect(function(dt)
                 stickyTimer = AA.StickTime
             else
                 stickyTimer = math.max(0, stickyTimer - dt)
-                if stickyTimer <= 0 or not validateTarget(stickyTarget) then
+                if stickyTimer <= 0 then
                     stickyTarget = nil
                 end
             end
@@ -660,23 +737,66 @@ RunService.RenderStepped:Connect(function(dt)
             stickyTimer = 0
         end
 
-        local t = stickyTarget or candidate
-        if t then
-            local pos=Camera.CFrame.Position
-            local targetPos=t.Position
-            if AA.Prediction > 0 then
-                local vel = t.AssemblyLinearVelocity or Vector3.zero
-                targetPos = targetPos + vel * math.clamp(AA.Prediction, 0, 1.5)
+        if stickyTarget then
+            stickyTarget = refreshTarget(stickyTarget)
+            if not stickyTarget then
+                stickyTimer = 0
             end
-            local des=CFrame.lookAt(pos, targetPos)
-            local alpha=math.clamp(AA.Strength + dt*0.5, 0, 1)
-            if AA.AdaptiveSmoothing then
-                local dist = (targetPos - pos).Magnitude
-                local normalized = 1 - math.clamp(dist / math.max(AA.MaxDistance, 1), 0, 1)
-                alpha = math.clamp(alpha + normalized * AA.CloseRangeBoost, 0, 1)
-            end
-            Camera.CFrame = Camera.CFrame:Lerp(des, alpha)
         end
+
+        local targetInfo = stickyTarget or candidate
+        if targetInfo and not validateTarget(targetInfo) then
+            targetInfo = nil
+            if stickyTarget and not validateTarget(stickyTarget) then
+                stickyTarget = nil
+                stickyTimer = 0
+            end
+        end
+
+        if targetInfo then
+            if targetInfo.part ~= lastTargetPart then
+                lastTargetPart = targetInfo.part
+                local delay = math.max(0, AA.ReactionDelay or 0)
+                local jitter = math.max(0, AA.ReactionJitter or 0)
+                if jitter > 0 then
+                    delay = delay + rng:NextNumber(0, jitter)
+                end
+                reactionTimer = delay
+            end
+
+            if reactionTimer > 0 then
+                reactionTimer = math.max(0, reactionTimer - dt)
+            else
+                local pos = Camera.CFrame.Position
+                local targetPos = targetInfo.part.Position + Vector3.new(0, AA.VerticalOffset or 0, 0)
+                if AA.Prediction > 0 then
+                    targetPos = targetPos + targetInfo.velocity * math.clamp(AA.Prediction, 0, 1.5)
+                end
+                local des = CFrame.lookAt(pos, targetPos)
+                local alpha = math.clamp(AA.Strength + dt*0.5, 0, 1)
+                if AA.AdaptiveSmoothing then
+                    local normalized = 1 - math.clamp((targetInfo.distance or 0) / math.max(AA.MaxDistance, 1), 0, 1)
+                    alpha = math.clamp(alpha + normalized * AA.CloseRangeBoost, 0, 1)
+                end
+
+                local deadzone = math.max(0, AA.Deadzone or 0)
+                if deadzone > 0 then
+                    local closeness = (targetInfo.pixelDist - deadzone) / math.max(deadzone, 1)
+                    if closeness > 0 then
+                        local scale = math.clamp(closeness, 0.05, 1)
+                        Camera.CFrame = Camera.CFrame:Lerp(des, math.clamp(alpha * scale, 0, 1))
+                    end
+                else
+                    Camera.CFrame = Camera.CFrame:Lerp(des, alpha)
+                end
+            end
+        else
+            lastTargetPart = nil
+            reactionTimer = 0
+        end
+    else
+        lastTargetPart = nil
+        reactionTimer = 0
     end
     applyRC(dt)
 end)
@@ -738,8 +858,17 @@ mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.Req
 mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end)
 mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end)
 mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px")
+mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px")
 mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end)
 mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs")
+mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs")
+local targetPriority = mkCycle(AimbotP,"Target Priority", {
+    {label="Hybrid (angle+distance)", value="Hybrid"},
+    {label="Closest Angle", value="Angle"},
+    {label="Closest Distance", value="Distance"},
+    {label="Lowest Health", value="Health"},
+}, AA.TargetSort, function(val) AA.TargetSort=val end)
+local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end)
 local dynamicPartToggle
 dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end)
 local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end)
@@ -751,9 +880,12 @@ local stickyDuration = mkSlider(AimbotP,"Sticky Duration", 0.1, 1.5, AA.StickTim
     AA.StickTime=x
     stickyTimer = math.min(stickyTimer, AA.StickTime)
 end,"s")
+local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s")
+local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s")
 local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end)
 local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end)
 local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s")
+local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs")
 
 -- Recoil sub-section
 local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end)
@@ -767,6 +899,8 @@ local function refreshRCUI()
     setInteractable(stickyDuration.Row, AA.StickyAim)
     setInteractable(closeBoost.Row, AA.AdaptiveSmoothing)
     if partCycle and partCycle.Row then setInteractable(partCycle.Row, not AA.DynamicPart) end
+    if reactionJitter and reactionJitter.Row then setInteractable(reactionJitter.Row, (AA.ReactionDelay or 0) > 0) end
+    if distanceWeight and distanceWeight.Row then setInteractable(distanceWeight.Row, (AA.TargetSort or "Hybrid") == "Hybrid") end
 end
 RunService.RenderStepped:Connect(refreshRCUI)
 
