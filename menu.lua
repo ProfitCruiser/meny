@@ -218,7 +218,8 @@ local Tooltip = Instance.new("Frame", App)
 Tooltip.Visible = false
 Tooltip.AnchorPoint = Vector2.new(0, 0)
 Tooltip.Position = UDim2.fromOffset(0, 0)
-Tooltip.AutomaticSize = Enum.AutomaticSize.XY
+Tooltip.Size = UDim2.new(0, 280, 0, 0)
+Tooltip.AutomaticSize = Enum.AutomaticSize.Y
 Tooltip.BackgroundColor3 = T.Panel
 Tooltip.ZIndex = 300
 corner(Tooltip, 8)
@@ -237,7 +238,7 @@ TooltipLabel.TextSize = 13
 TooltipLabel.TextColor3 = T.Text
 TooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
 TooltipLabel.TextYAlignment = Enum.TextYAlignment.Top
-TooltipLabel.AutomaticSize = Enum.AutomaticSize.XY
+TooltipLabel.AutomaticSize = Enum.AutomaticSize.Y
 TooltipLabel.TextWrapped = true
 TooltipLabel.Size = UDim2.new(1, 0, 0, 0)
 
@@ -259,6 +260,7 @@ end
 
 local function showTooltip(text)
     TooltipLabel.Text = text
+    TooltipLabel.TextTransparency = 0
     Tooltip.Visible = true
     positionTooltip()
 end
@@ -473,9 +475,9 @@ end
 
 local function mkSlider(parent, name, min, max, default, cb, unit, desc)
     local r,l=rowBase(parent,name,desc)
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,110,1,0); v.Position=UDim2.new(1,-118,0,0)
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,1,0); v.Position=UDim2.new(1,-128,0,0)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-24,0,6); bar.Position=UDim2.new(0,12,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-168,0,6); bar.Position=UDim2.new(0,40,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
