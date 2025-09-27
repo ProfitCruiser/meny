@@ -18,8 +18,6 @@ local Camera      = workspace.CurrentCamera
 
 -- forward-declare Root so click handlers can access it before it's created
 local Root
-local StatusChip
-local StatusChipLbl
 
 pcall(function()
     GuiService.AutoSelectGuiEnabled = false
@@ -33,20 +31,18 @@ local DISCORD_URL   = "https://discord.gg/Pgn4NMWDH8"
 
 --// Theme
 local T = {
-    BG       = Color3.fromRGB(8, 9, 18),
-    Panel    = Color3.fromRGB(18, 16, 31),
-    Card     = Color3.fromRGB(26, 24, 44),
-    Ink      = Color3.fromRGB(34, 30, 52),
-    Stroke   = Color3.fromRGB(82, 74, 120),
-    Neon     = Color3.fromRGB(160, 105, 255),
-    Accent   = Color3.fromRGB(116, 92, 220),
-    AccentHi = Color3.fromRGB(180, 132, 255),
-    Text     = Color3.fromRGB(240, 240, 252),
-    Subtle   = Color3.fromRGB(188, 182, 210),
-    Good     = Color3.fromRGB(80, 210, 140),
-    Warn     = Color3.fromRGB(255, 183, 77),
-    Off      = Color3.fromRGB(100, 94, 130),
-    Glow     = Color3.fromRGB(13, 12, 24),
+    BG      = Color3.fromRGB(10, 9, 18),
+    Panel   = Color3.fromRGB(18, 16, 31),
+    Card    = Color3.fromRGB(24, 21, 40),
+    Ink     = Color3.fromRGB(34, 30, 52),
+    Stroke  = Color3.fromRGB(82, 74, 120),
+    Neon    = Color3.fromRGB(160, 105, 255),
+    Accent  = Color3.fromRGB(116, 92, 220),
+    Text    = Color3.fromRGB(240, 240, 252),
+    Subtle  = Color3.fromRGB(188, 182, 210),
+    Good    = Color3.fromRGB(80, 210, 140),
+    Warn    = Color3.fromRGB(255, 183, 77),
+    Off     = Color3.fromRGB(100, 94, 130),
 }
 
 local function safeParent()
@@ -59,28 +55,6 @@ local function corner(o,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim
 local function stroke(o,col,th,tr) local s=Instance.new("UIStroke"); s.Color=col; s.Thickness=th or 1; s.Transparency=tr or 0; s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; s.Parent=o end
 local function pad(o,p) local x=Instance.new("UIPadding"); x.PaddingTop=UDim.new(0,p); x.PaddingBottom=UDim.new(0,p); x.PaddingLeft=UDim.new(0,p); x.PaddingRight=UDim.new(0,p); x.Parent=o end
 local function trim(s) s=tostring(s or ""):gsub("\r",""):gsub("\n",""):gsub("%s+$",""):gsub("^%s+",""); return s end
-local function gradient(o, seq, rot)
-    local g = Instance.new("UIGradient")
-    g.Color = seq
-    g.Rotation = rot or 0
-    g.Parent = o
-    return g
-end
-local function shadow(parent, sizeOffset)
-    local sh = Instance.new("ImageLabel")
-    sh.Name = "Shadow"
-    sh.BackgroundTransparency = 1
-    sh.Image = "rbxassetid://1316045217"
-    sh.ImageTransparency = 0.65
-    sh.ScaleType = Enum.ScaleType.Slice
-    sh.SliceCenter = Rect.new(10, 10, 118, 118)
-    sh.AnchorPoint = Vector2.new(0.5, 0.5)
-    sh.Position = UDim2.fromScale(0.5, 0.5)
-    sh.Size = UDim2.new(1, sizeOffset or 60, 1, sizeOffset or 60)
-    sh.ZIndex = -1
-    sh.Parent = parent
-    return sh
-end
 local function setInteractable(frame, on)
     for _,v in ipairs(frame:GetDescendants()) do
         if v:IsA("TextLabel") or v:IsA("TextButton") then
@@ -105,38 +79,20 @@ Dim.BackgroundColor3=Color3.new(0,0,0); Dim.BackgroundTransparency=0.35; Dim.Siz
 
 local Card = Instance.new("Frame", Gate)
 Card.Size=UDim2.fromOffset(540, 320); Card.AnchorPoint=Vector2.new(0.5,0.5); Card.Position=UDim2.fromScale(0.5,0.5)
-Card.BackgroundColor3=T.Card; stroke(Card,T.Stroke,1,0.35); corner(Card,20); pad(Card,18)
-gradient(Card, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(34, 31, 58)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 20, 38)),
-}), -90)
-shadow(Card, 80)
+Card.BackgroundColor3=T.Card; stroke(Card,T.Stroke,1,0.45); corner(Card,18); pad(Card,18)
 
 local Title = Instance.new("TextLabel", Card)
-Title.BackgroundTransparency=1; Title.Text="ProfitCruiser • Access Suite"; Title.Font=Enum.Font.GothamBold; Title.TextSize=22; Title.TextColor3=T.Text
-Title.Size=UDim2.new(1,0,0,28); Title.TextXAlignment=Enum.TextXAlignment.Left
-Title.TextYAlignment=Enum.TextYAlignment.Center
+Title.BackgroundTransparency=1; Title.Text="ProfitCruiser — Access"; Title.Font=Enum.Font.GothamBold; Title.TextSize=20; Title.TextColor3=T.Text
+Title.Size=UDim2.new(1,0,0,24); Title.TextXAlignment=Enum.TextXAlignment.Left
 
 local Hint = Instance.new("TextLabel", Card)
-Hint.BackgroundTransparency=1; Hint.Text="Secure entry required. Fetch a key or join the Discord to continue."; Hint.Font=Enum.Font.Gotham; Hint.TextSize=14; Hint.TextColor3=T.Subtle
-Hint.Size=UDim2.new(1,0,0,22); Hint.Position=UDim2.new(0,0,0,34); Hint.TextXAlignment=Enum.TextXAlignment.Left
-Hint.TextWrapped = true
+Hint.BackgroundTransparency=1; Hint.Text="Paste your key. Use Get Key or join Discord."; Hint.Font=Enum.Font.Gotham; Hint.TextSize=14; Hint.TextColor3=T.Subtle
+Hint.Size=UDim2.new(1,0,0,20); Hint.Position=UDim2.new(0,0,0,30); Hint.TextXAlignment=Enum.TextXAlignment.Left
 
 local KeyBox = Instance.new("TextBox", Card)
-KeyBox.Size=UDim2.new(1,0,0,44); KeyBox.Position=UDim2.new(0,0,0,76); KeyBox.Text=""; KeyBox.PlaceholderText="Enter access key"
-KeyBox.ClearTextOnFocus=false; KeyBox.Font=Enum.Font.Gotham; KeyBox.TextSize=16; KeyBox.TextColor3=T.Text
-KeyBox.BackgroundColor3=T.Ink; stroke(KeyBox,T.Stroke,1,0.25); corner(KeyBox,12)
-gradient(KeyBox, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(41, 37, 66)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(33, 29, 54)),
-}), 0)
-KeyBox.Focused:Connect(function()
-    if StatusChip and StatusChipLbl then
-        StatusChip.BackgroundColor3 = Color3.fromRGB(62, 38, 32)
-        StatusChipLbl.TextColor3 = T.Warn
-        StatusChipLbl.Text = "Awaiting Key"
-    end
-end)
+KeyBox.Size=UDim2.new(1,0,0,40); KeyBox.Position=UDim2.new(0,0,0,64); KeyBox.Text=""; KeyBox.PlaceholderText="Enter key…"
+KeyBox.ClearTextOnFocus=false; KeyBox.Font=Enum.Font.Gotham; KeyBox.TextSize=15; KeyBox.TextColor3=T.Text
+KeyBox.BackgroundColor3=T.Ink; stroke(KeyBox,T.Stroke,1,0.35); corner(KeyBox,12)
 
 local Row = Instance.new("Frame", Card)
 Row.BackgroundTransparency=1; Row.Size=UDim2.new(1,0,0,42); Row.Position=UDim2.new(0,0,0,118)
@@ -146,11 +102,7 @@ grid.CellSize=UDim2.fromOffset(150,38); grid.CellPadding=UDim2.new(0,12,0,0); gr
 local function btn(text)
     local b=Instance.new("TextButton", Row); b.Text=text; b.Font=Enum.Font.GothamMedium; b.TextSize=14; b.TextColor3=T.Text
     b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; b.Size=UDim2.fromOffset(150,38)
-    stroke(b,T.Stroke,1,0.25); corner(b,12)
-    gradient(b, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 40, 72)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 27, 50)),
-    }), -90)
+    stroke(b,T.Stroke,1,0.35); corner(b,12)
     b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Accent}):Play() end)
     b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Ink}):Play() end)
     return b
@@ -162,7 +114,7 @@ local Confirm = btn("Confirm")
 
 local Status = Instance.new("TextLabel", Card)
 Status.BackgroundTransparency=1; Status.Text=""; Status.Font=Enum.Font.Gotham; Status.TextSize=13; Status.TextColor3=T.Subtle
-Status.Size=UDim2.new(1,0,0,20); Status.Position=UDim2.new(0,0,0,176); Status.TextXAlignment=Enum.TextXAlignment.Left
+Status.Size=UDim2.new(1,0,0,20); Status.Position=UDim2.new(0,0,0,168); Status.TextXAlignment=Enum.TextXAlignment.Left
 
 -- Success overlay in its own GUI so it survives hiding Gate
 local SuccessGui = Instance.new("ScreenGui")
@@ -174,12 +126,7 @@ local Success = Instance.new("Frame", SuccessGui)
 Success.Visible=false; Success.Size=UDim2.fromScale(1,1); Success.BackgroundTransparency=1
 local Center = Instance.new("Frame", Success)
 Center.Size=UDim2.fromOffset(420,220); Center.AnchorPoint=Vector2.new(0.5,0.5); Center.Position=UDim2.fromScale(0.5,0.5); Center.BackgroundColor3=T.Card
-corner(Center,18); stroke(Center,T.Good,2,0.1)
-gradient(Center, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 45, 38)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 30, 25)),
-}), -90)
-shadow(Center, 40)
+corner(Center,16); stroke(Center,T.Good,2,0)
 local GG = Instance.new("TextLabel", Center)
 GG.BackgroundTransparency=1; GG.Size=UDim2.fromScale(1,1); GG.Text="ACCESS GRANTED ✨"; GG.TextColor3=T.Good; GG.Font=Enum.Font.GothamBold; GG.TextSize=28
 
@@ -214,23 +161,10 @@ end
 Confirm.MouseButton1Click:Connect(function()
     Status.Text = "Checking key…"
     local expected,err = fetchRemoteKey()
-    if not expected then
-        Status.Text = "Fetch failed: "..tostring(err or "")
-        if StatusChip and StatusChipLbl then
-            StatusChip.BackgroundColor3 = Color3.fromRGB(92, 42, 36)
-            StatusChipLbl.TextColor3 = T.Warn
-            StatusChipLbl.Text = "Connection Error"
-        end
-        return
-    end
+    if not expected then Status.Text = "Fetch failed: "..tostring(err or "") return end
 
     if trim(KeyBox.Text) == expected then
         Status.Text = "Accepted!"
-        if StatusChip and StatusChipLbl then
-            StatusChip.BackgroundColor3 = Color3.fromRGB(40, 80, 65)
-            StatusChipLbl.TextColor3 = T.Good
-            StatusChipLbl.Text = "Access Granted"
-        end
 
         -- Immediately hide the gate UI so the key box is gone
         Gate.Enabled = false
@@ -255,11 +189,6 @@ Confirm.MouseButton1Click:Connect(function()
 
     else
         Status.Text = "Wrong key."
-        if StatusChip and StatusChipLbl then
-            StatusChip.BackgroundColor3 = Color3.fromRGB(92, 42, 36)
-            StatusChipLbl.TextColor3 = T.Warn
-            StatusChipLbl.Text = "Invalid Key"
-        end
     end
 end)
 
@@ -276,101 +205,20 @@ local App = Instance.new("ScreenGui")
 App.Name="AuroraPanel"; App.IgnoreGuiInset=true; App.ResetOnSpawn=false; App.ZIndexBehavior=Enum.ZIndexBehavior.Global
 App.DisplayOrder=50; App.Parent=safeParent()
 
-local Backdrop = Instance.new("Frame", App)
-Backdrop.Name = "Backdrop"
-Backdrop.ZIndex = 0
-Backdrop.BackgroundColor3 = T.BG
-Backdrop.BorderSizePixel = 0
-Backdrop.Size = UDim2.fromScale(1,1)
-gradient(Backdrop, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(9, 9, 20)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(14, 12, 28)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 16)),
-}), 90)
-
-local BackdropPattern = Instance.new("ImageLabel", Backdrop)
-BackdropPattern.BackgroundTransparency = 1
-BackdropPattern.AnchorPoint = Vector2.new(0.5, 0.5)
-BackdropPattern.Position = UDim2.fromScale(0.5, 0.5)
-BackdropPattern.Size = UDim2.fromScale(1.2, 1.2)
-BackdropPattern.Image = "rbxassetid://11388969716"
-BackdropPattern.ImageTransparency = 0.9
-BackdropPattern.TileSize = UDim2.fromOffset(420, 420)
-BackdropPattern.ScaleType = Enum.ScaleType.Tile
-BackdropPattern.ZIndex = 0
-
 Root = Instance.new("Frame", App)
 Root.Size=UDim2.fromOffset(980, 600); Root.AnchorPoint=Vector2.new(0.5,0.5); Root.Position=UDim2.fromScale(0.5,0.5)
-Root.BackgroundColor3=T.Card; Root.ZIndex = 2; corner(Root,18); stroke(Root,T.Stroke,1,0.25); pad(Root,12)
-gradient(Root, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 27, 48)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 20, 36)),
-}), -90)
-shadow(Root, 120)
+Root.BackgroundColor3=T.Card; corner(Root,16); stroke(Root,T.Stroke,1,0.45); pad(Root,12)
 Root.Visible=false
 
 local PanelScale = Instance.new("UIScale", Root)
 PanelScale.Scale = 1
 
 local Top = Instance.new("Frame", Root)
-Top.Size=UDim2.new(1, -16, 0, 70); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,16); stroke(Top,T.Stroke,1,0.25); pad(Top,14)
-gradient(Top, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 27, 52)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 20, 38)),
-}), -90)
-
-local TopAccent = Instance.new("Frame", Top)
-TopAccent.BackgroundColor3 = T.Accent
-TopAccent.Size = UDim2.new(0, 4, 1, -28)
-TopAccent.Position = UDim2.new(0, 0, 0, 14)
-corner(TopAccent, 12)
+Top.Size=UDim2.new(1, -16, 0, 46); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,12); stroke(Top,T.Stroke,1,0.45); pad(Top,10)
 
 local TitleLbl = Instance.new("TextLabel", Top)
-TitleLbl.Size=UDim2.new(0.55,0,0,26); TitleLbl.Position = UDim2.new(0,18,0,2); TitleLbl.BackgroundTransparency=1; TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
-TitleLbl.Text="ProfitCruiser"; TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=24; TitleLbl.TextColor3=T.Text
-
-local Subtitle = Instance.new("TextLabel", Top)
-Subtitle.Size = UDim2.new(0.6, 0, 0, 20)
-Subtitle.Position = UDim2.new(0, 18, 0, 36)
-Subtitle.BackgroundTransparency = 1
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-Subtitle.TextColor3 = T.Subtle
-Subtitle.Font = Enum.Font.Gotham
-Subtitle.TextSize = 14
-Subtitle.Text = "Aurora Control Suite"
-
-local BuildTag = Instance.new("Frame", Top)
-BuildTag.AnchorPoint = Vector2.new(1, 0)
-BuildTag.Position = UDim2.new(1, -12, 0, 12)
-BuildTag.Size = UDim2.new(0, 120, 0, 36)
-BuildTag.BackgroundColor3 = Color3.fromRGB(38, 34, 58)
-corner(BuildTag, 12)
-stroke(BuildTag, T.Stroke, 1, 0.35)
-local BuildText = Instance.new("TextLabel", BuildTag)
-BuildText.BackgroundTransparency = 1
-BuildText.Size = UDim2.fromScale(1,1)
-BuildText.Font = Enum.Font.GothamMedium
-BuildText.TextSize = 14
-BuildText.TextColor3 = T.Text
-BuildText.Text = "v2.0 • LIVE"
-BuildText.TextXAlignment = Enum.TextXAlignment.Center
-BuildText.TextYAlignment = Enum.TextYAlignment.Center
-
-StatusChip = Instance.new("Frame", Top)
-StatusChip.AnchorPoint = Vector2.new(1, 0)
-StatusChip.Position = UDim2.new(1, -12, 0, 46)
-StatusChip.Size = UDim2.new(0, 160, 0, 24)
-StatusChip.BackgroundColor3 = Color3.fromRGB(62, 38, 32)
-corner(StatusChip, 12)
-StatusChipLbl = Instance.new("TextLabel", StatusChip)
-StatusChipLbl.BackgroundTransparency = 1
-StatusChipLbl.Size = UDim2.fromScale(1,1)
-StatusChipLbl.Font = Enum.Font.GothamMedium
-StatusChipLbl.TextSize = 13
-StatusChipLbl.TextColor3 = T.Warn
-StatusChipLbl.Text = "Awaiting Key"
-StatusChipLbl.TextXAlignment = Enum.TextXAlignment.Center
-StatusChipLbl.TextYAlignment = Enum.TextYAlignment.Center
+TitleLbl.Size=UDim2.new(0.6,0,1,0); TitleLbl.BackgroundTransparency=1; TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
+TitleLbl.Text="ProfitCruiser — Aurora Panel"; TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=18; TitleLbl.TextColor3=T.Text
 
 -- drag
 local draggingEnabled = true
@@ -385,75 +233,17 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local Footer = Instance.new("Frame", Root)
-Footer.Size = UDim2.new(1, -234, 0, 42)
-Footer.Position = UDim2.new(0, 226, 1, -50)
-Footer.BackgroundColor3 = Color3.fromRGB(28, 26, 46)
-Footer.ZIndex = 3
-corner(Footer, 14)
-stroke(Footer, T.Stroke, 1, 0.25)
-gradient(Footer, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 28, 56)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 22, 40)),
-}), 0)
-
-local FooterLabel = Instance.new("TextLabel", Footer)
-FooterLabel.BackgroundTransparency = 1
-FooterLabel.Size = UDim2.new(1, -32, 1, 0)
-FooterLabel.Font = Enum.Font.Gotham
-FooterLabel.TextColor3 = T.Subtle
-FooterLabel.TextSize = 13
-FooterLabel.ZIndex = 4
-FooterLabel.TextXAlignment = Enum.TextXAlignment.Left
-FooterLabel.TextYAlignment = Enum.TextYAlignment.Center
-FooterLabel.Text = "Tip: Scroll each category to uncover advanced options and save/load profiles inside Config."
-FooterLabel.Position = UDim2.new(0, 16, 0, 0)
-FooterLabel.TextWrapped = true
-
 -- sidebar
 local Side = Instance.new("Frame", Root)
-Side.Size=UDim2.new(0, 210, 1, -120); Side.Position=UDim2.new(0,8,0,62)
-Side.BackgroundColor3=T.Panel; corner(Side,14); stroke(Side,T.Stroke,1,0.25); pad(Side,10)
-gradient(Side, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 26, 48)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 16, 34)),
-}), -90)
-shadow(Side, 80)
+Side.Size=UDim2.new(0, 210, 1, -70); Side.Position=UDim2.new(0,8,0,62)
+Side.BackgroundColor3=T.Panel; corner(Side,12); stroke(Side,T.Stroke,1,0.45); pad(Side,8)
 -- ensure tab buttons stack vertically (fix: only Aimbot showing)
 local SideList = Instance.new("UIListLayout", Side)
 SideList.SortOrder = Enum.SortOrder.LayoutOrder
 SideList.Padding   = UDim.new(0,8)
 
-local NavLabel = Instance.new("TextLabel", Side)
-NavLabel.Size = UDim2.new(1, -8, 0, 32)
-NavLabel.BackgroundTransparency = 1
-NavLabel.TextXAlignment = Enum.TextXAlignment.Left
-NavLabel.TextColor3 = T.Subtle
-NavLabel.Font = Enum.Font.GothamMedium
-NavLabel.TextSize = 14
-NavLabel.Text = "NAVIGATION"
-NavLabel.LayoutOrder = 0
-
-local NavDivider = Instance.new("Frame", Side)
-NavDivider.Size = UDim2.new(1, -8, 0, 1)
-NavDivider.BackgroundColor3 = Color3.fromRGB(60, 56, 90)
-NavDivider.BorderSizePixel = 0
-NavDivider.LayoutOrder = 0
-
-local ContentShell = Instance.new("Frame", Root)
-ContentShell.Size=UDim2.new(1, -234, 1, -120); ContentShell.Position=UDim2.new(0, 226, 0, 62)
-ContentShell.BackgroundColor3 = T.Panel; ContentShell.ClipsDescendants = true
-corner(ContentShell, 18); stroke(ContentShell, T.Stroke, 1, 0.2)
-gradient(ContentShell, ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 26, 50)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 18, 34)),
-}), -90)
-pad(ContentShell, 12)
-shadow(ContentShell, 90)
-
-local Content = Instance.new("Frame", ContentShell)
-Content.Size = UDim2.fromScale(1, 1)
-Content.BackgroundTransparency = 1
+local Content = Instance.new("Frame", Root)
+Content.Size=UDim2.new(1, -234, 1, -70); Content.Position=UDim2.new(0, 226, 0, 62); Content.BackgroundTransparency=1
 Content.ClipsDescendants = true
 
 -- two-column grid inside pages
@@ -480,8 +270,8 @@ local function newPage(name)
     padding.PaddingBottom = UDim.new(0, 12)
 
     local grid = Instance.new("UIGridLayout", p)
-    grid.CellPadding = UDim2.new(0, 14, 0, 14)
-    grid.CellSize = UDim2.new(0.5, -6, 0, 68)
+    grid.CellPadding = UDim2.new(0, 12, 0, 12)
+    grid.CellSize = UDim2.new(0.5, -6, 0, 56)
     grid.SortOrder = Enum.SortOrder.LayoutOrder
     grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
@@ -509,13 +299,9 @@ end
 
 local function tabButton(text, page)
     local b=Instance.new("TextButton", Side)
-    b.Size=UDim2.new(1,-4,0,42); b.LayoutOrder = 1; b.Text=text; b.Font=Enum.Font.GothamMedium; b.TextSize=15; b.TextColor3=T.Text
-    b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; corner(b,12); stroke(b,T.Stroke,1,0.3)
-    gradient(b, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 36, 68)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 25, 50)),
-    }), -90)
-    local bar=Instance.new("Frame", b); bar.Size=UDim2.new(0,0,1,-16); bar.Position=UDim2.new(0,0,0,8); bar.BackgroundColor3=T.AccentHi; corner(bar,12)
+    b.Size=UDim2.new(1,0,0,40); b.Text=text; b.Font=Enum.Font.Gotham; b.TextSize=15; b.TextColor3=T.Text
+    b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; corner(b,10); stroke(b,T.Stroke,1,0.35)
+    local bar=Instance.new("Frame", b); bar.Size=UDim2.new(0,0,1,0); bar.Position=UDim2.new(0,0,0,0); bar.BackgroundColor3=T.Neon; corner(bar,10)
     b.MouseButton1Click:Connect(function()
         for _,c in ipairs(Content:GetChildren()) do
             if c:IsA("GuiObject") then
@@ -525,77 +311,35 @@ local function tabButton(text, page)
         for _,x in ipairs(Side:GetChildren()) do
             if x:IsA("TextButton") then
                 TweenService:Create(x,TweenInfo.new(0.12),{BackgroundColor3=T.Ink}):Play()
-                local f=x:FindFirstChildOfClass("Frame"); if f then TweenService:Create(f,TweenInfo.new(0.16),{Size=UDim2.new(0,0,1,-16)}):Play() end
+                local f=x:FindFirstChildOfClass("Frame"); if f then TweenService:Create(f,TweenInfo.new(0.12),{Size=UDim2.new(0,0,1,0)}):Play() end
             end
         end
         page.Visible=true
         if page:IsA("ScrollingFrame") then page.CanvasPosition = Vector2.new(0,0) end
-        TweenService:Create(b,TweenInfo.new(0.16),{BackgroundColor3=T.Accent}):Play()
-        TweenService:Create(bar,TweenInfo.new(0.18),{Size=UDim2.new(0,6,1,-16)}):Play()
-    end)
-    b.MouseEnter:Connect(function()
-        if not page.Visible then
-            TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(60, 48, 88)}):Play()
-        end
-    end)
-    b.MouseLeave:Connect(function()
-        if not page.Visible then
-            TweenService:Create(b, TweenInfo.new(0.12), {BackgroundColor3 = T.Ink}):Play()
-        end
+        TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Accent}):Play()
+        TweenService:Create(bar,TweenInfo.new(0.12),{Size=UDim2.new(0,4,1,0)}):Play()
     end)
     return b
 end
 
 -- Controls factory (compact, reused)
 local function rowBase(parent, name)
-    local r=Instance.new("Frame", parent)
-    r.Name = name .. "Row"
-    r.BackgroundColor3=T.Card
-    r.Size=UDim2.new(0.5,-6,0,68)
-    corner(r,14)
-    stroke(r,T.Stroke,1,0.18)
-    gradient(r, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(34, 30, 58)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(24, 22, 42)),
-    }), -90)
-
-    local accent = Instance.new("Frame", r)
-    accent.Name = "Accent"
-    accent.BackgroundColor3 = T.Off
-    accent.Size = UDim2.new(0, 4, 1, -24)
-    accent.Position = UDim2.new(0, 12, 0, 12)
-    corner(accent, 10)
-
-    local l=Instance.new("TextLabel", r)
-    l.BackgroundTransparency=1
-    l.Position=UDim2.new(0,24,0,0)
-    l.Size=UDim2.new(1,-160,1,0)
-    l.Text=name
-    l.TextColor3=T.Text
-    l.Font=Enum.Font.Gotham
-    l.TextSize=14
-    l.TextXAlignment=Enum.TextXAlignment.Left
-    l.TextYAlignment=Enum.TextYAlignment.Center
+    local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0,56)
+    corner(r,10); stroke(r,T.Stroke,1,0.25)
+    local l=Instance.new("TextLabel", r); l.BackgroundTransparency=1; l.Position=UDim2.new(0,12,0,0); l.Size=UDim2.new(1,-140,1,0)
+    l.Text=name; l.TextColor3=T.Text; l.Font=Enum.Font.Gotham; l.TextSize=14; l.TextXAlignment=Enum.TextXAlignment.Left
     return r,l
 end
 
 local function mkToggle(parent, name, default, cb)
     local r,_=rowBase(parent,name)
-    local sw=Instance.new("Frame", r); sw.Size=UDim2.new(0,72,0,30); sw.Position=UDim2.new(1,-96,0.5,-15); sw.BackgroundColor3=T.Ink; corner(sw,16); stroke(sw,T.Stroke,1,0.3)
-    gradient(sw, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 40, 72)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 26, 50)),
-    }), 0)
-    local k=Instance.new("Frame", sw); k.Size=UDim2.new(0,24,0,24); k.Position=UDim2.new(0,3,0.5,-12); k.BackgroundColor3=Color3.fromRGB(235,235,245); corner(k,12)
+    local sw=Instance.new("Frame", r); sw.Size=UDim2.new(0,68,0,28); sw.Position=UDim2.new(1,-84,0.5,-14); sw.BackgroundColor3=T.Ink; corner(sw,16); stroke(sw,T.Stroke,1,0.35)
+    local k=Instance.new("Frame", sw); k.Size=UDim2.new(0,24,0,24); k.Position=UDim2.new(0,2,0.5,-12); k.BackgroundColor3=Color3.fromRGB(235,235,245); corner(k,12)
     local state = default
     local function set(v)
         state=v
         TweenService:Create(k,TweenInfo.new(0.12),{Position=v and UDim2.new(1,-26,0.5,-12) or UDim2.new(0,2,0.5,-12)}):Play()
         TweenService:Create(sw,TweenInfo.new(0.12),{BackgroundColor3=v and T.Neon or T.Ink}):Play()
-        local accent = r:FindFirstChild("Accent")
-        if accent then
-            TweenService:Create(accent, TweenInfo.new(0.16), {BackgroundColor3 = v and T.Accent or T.Off}):Play()
-        end
         if cb then cb(v,r) end
     end
     sw.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then set(not state) end end)
@@ -605,21 +349,17 @@ end
 
 local function mkSlider(parent, name, min, max, default, cb, unit)
     local r,l=rowBase(parent,name)
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,110,1,0); v.Position=UDim2.new(1,-128,0,0)
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,110,1,0); v.Position=UDim2.new(1,-118,0,0)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-36,0,6); bar.Position=UDim2.new(0,24,0,42); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-24,0,6); bar.Position=UDim2.new(0,12,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
-    local accent = r:FindFirstChild("Accent")
     local function render()
         local a=(val-min)/(max-min)
         fill.Size=UDim2.new(a,0,1,0)
         local u = unit and (" "..unit) or ""
         v.Text = (math.floor(val*100+0.5)/100)..u
-        if accent then
-            accent.BackgroundColor3 = T.Accent
-        end
     end
     local dragging=false
     bar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true end end)
@@ -639,8 +379,8 @@ local function mkButton(parent, name, onClick, opts)
     local r,_ = rowBase(parent, name)
     -- make the label take full width, then place a button pill on the right
     local btn = Instance.new("TextButton", r)
-    btn.Size = UDim2.new(0, 126, 0, 32)
-    btn.Position = UDim2.new(1, -150, 0.5, -16)
+    btn.Size = UDim2.new(0, 120, 0, 30)
+    btn.Position = UDim2.new(1, -132, 0.5, -15)
     opts = opts or {}
     local danger = opts.danger
     local buttonText = opts.buttonText or (danger and "Kill Menu" or "Run")
@@ -653,12 +393,8 @@ local function mkButton(parent, name, onClick, opts)
     btn.TextColor3 = textColor
     btn.BackgroundColor3 = baseColor
     btn.AutoButtonColor = false
-    corner(btn, 12)
-    stroke(btn, (danger and Color3.fromRGB(200,80,90)) or opts.strokeColor or T.Stroke, 1, 0.28)
-    gradient(btn, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(46, 40, 70)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 26, 50)),
-    }), -90)
+    corner(btn, 10)
+    stroke(btn, (danger and Color3.fromRGB(200,80,90)) or opts.strokeColor or T.Stroke, 1, 0.35)
     btn.MouseEnter:Connect(function()
         TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = hoverColor}):Play()
     end)
@@ -668,30 +404,21 @@ local function mkButton(parent, name, onClick, opts)
     btn.MouseButton1Click:Connect(function()
         if onClick then onClick(r) end
     end)
-    local accent = r:FindFirstChild("Accent")
-    if accent then
-        accent.BackgroundColor3 = danger and Color3.fromRGB(200, 90, 80) or T.Accent
-    end
-
     return {Row=r, Button=btn}
 end
 
 local function mkCycle(parent, name, options, default, cb)
     local r,_ = rowBase(parent, name)
     local btn = Instance.new("TextButton", r)
-    btn.Size = UDim2.new(0, 126, 0, 32)
-    btn.Position = UDim2.new(1, -150, 0.5, -16)
+    btn.Size = UDim2.new(0, 120, 0, 30)
+    btn.Position = UDim2.new(1, -132, 0.5, -15)
     btn.Font = Enum.Font.GothamMedium
     btn.TextSize = 14
     btn.TextColor3 = T.Text
     btn.BackgroundColor3 = T.Ink
     btn.AutoButtonColor = false
-    corner(btn, 12)
-    stroke(btn, T.Stroke, 1, 0.28)
-    gradient(btn, ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 38, 72)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 26, 50)),
-    }), -90)
+    corner(btn, 10)
+    stroke(btn, T.Stroke, 1, 0.35)
 
     local normalized = {}
     for i,opt in ipairs(options) do
@@ -721,15 +448,12 @@ local function mkCycle(parent, name, options, default, cb)
         end
     end
 
-    local accent = r:FindFirstChild("Accent")
-
     local function apply(index)
         if #normalized == 0 then return end
         idx = ((index - 1) % #normalized) + 1
         local opt = normalized[idx]
         btn.Text = opt.label
         if cb then cb(opt.value, r) end
-        if accent then accent.BackgroundColor3 = T.Accent end
     end
 
     btn.MouseButton1Click:Connect(function()
