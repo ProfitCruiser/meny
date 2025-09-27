@@ -213,6 +213,100 @@ Root.Visible=false
 local PanelScale = Instance.new("UIScale", Root)
 PanelScale.Scale = 1
 
+-- shared tooltip for control question marks
+local Tooltip = Instance.new("Frame", App)
+Tooltip.Visible = false
+Tooltip.AnchorPoint = Vector2.new(0, 0)
+Tooltip.Position = UDim2.fromOffset(0, 0)
+Tooltip.AutomaticSize = Enum.AutomaticSize.XY
+Tooltip.BackgroundColor3 = T.Panel
+Tooltip.ZIndex = 300
+corner(Tooltip, 8)
+stroke(Tooltip, T.Stroke, 1, 0.2)
+
+local tipPadding = Instance.new("UIPadding", Tooltip)
+tipPadding.PaddingTop = UDim.new(0, 8)
+tipPadding.PaddingBottom = UDim.new(0, 8)
+tipPadding.PaddingLeft = UDim.new(0, 10)
+tipPadding.PaddingRight = UDim.new(0, 10)
+
+local TooltipLabel = Instance.new("TextLabel", Tooltip)
+TooltipLabel.BackgroundTransparency = 1
+TooltipLabel.Font = Enum.Font.Gotham
+TooltipLabel.TextSize = 13
+TooltipLabel.TextColor3 = T.Text
+TooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
+TooltipLabel.TextYAlignment = Enum.TextYAlignment.Top
+TooltipLabel.AutomaticSize = Enum.AutomaticSize.XY
+TooltipLabel.TextWrapped = true
+TooltipLabel.Size = UDim2.new(1, 0, 0, 0)
+
+local function positionTooltip()
+    local mouse = UserInputService:GetMouseLocation()
+    local vp = Camera.ViewportSize
+    local padding = Vector2.new(16, 18)
+    local desiredX = mouse.X + padding.X
+    local desiredY = mouse.Y + padding.Y
+    local size = Tooltip.AbsoluteSize
+    if desiredX + size.X > vp.X - 12 then
+        desiredX = math.max(12, vp.X - size.X - 12)
+    end
+    if desiredY + size.Y > vp.Y - 12 then
+        desiredY = math.max(12, vp.Y - size.Y - 12)
+    end
+    Tooltip.Position = UDim2.fromOffset(desiredX, desiredY)
+end
+
+local function showTooltip(text)
+    TooltipLabel.Text = text
+    Tooltip.Visible = true
+    positionTooltip()
+end
+
+local function hideTooltip()
+    Tooltip.Visible = false
+end
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
+        positionTooltip()
+    end
+end)
+
+local function attachTooltip(object, text)
+    local localToken = 0
+    local hovering = false
+    local function endHover()
+        hovering = false
+        localToken += 1
+        hideTooltip()
+    end
+    object.MouseEnter:Connect(function()
+        hovering = true
+        localToken += 1
+        local thisToken = localToken
+        task.delay(1, function()
+            if hovering and thisToken == localToken then
+                local tip = typeof(text) == "function" and text() or text
+                tip = trim(tip)
+                if tip ~= "" then
+                    showTooltip(tip)
+                end
+            end
+        end)
+    end)
+    object.MouseLeave:Connect(endHover)
+    object.MouseButton1Down:Connect(endHover)
+    object.MouseButton1Up:Connect(endHover)
+    if object:IsA("GuiObject") then
+        object.MouseMoved:Connect(function()
+            if Tooltip.Visible then
+                positionTooltip()
+            end
+        end)
+    end
+end
+
 local Top = Instance.new("Frame", Root)
 Top.Size=UDim2.new(1, -16, 0, 46); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,12); stroke(Top,T.Stroke,1,0.45); pad(Top,10)
 
@@ -323,16 +417,46 @@ local function tabButton(text, page)
 end
 
 -- Controls factory (compact, reused)
-local function rowBase(parent, name)
+local function rowBase(parent, name, desc)
+    local helpText = desc or name
     local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0,56)
     corner(r,10); stroke(r,T.Stroke,1,0.25)
-    local l=Instance.new("TextLabel", r); l.BackgroundTransparency=1; l.Position=UDim2.new(0,12,0,0); l.Size=UDim2.new(1,-140,1,0)
-    l.Text=name; l.TextColor3=T.Text; l.Font=Enum.Font.Gotham; l.TextSize=14; l.TextXAlignment=Enum.TextXAlignment.Left
-    return r,l
+
+    local info = Instance.new("TextButton", r)
+    info.Name = "Info"
+    info.Size = UDim2.fromOffset(22,22)
+    info.Position = UDim2.new(0,12,0.5,-11)
+    info.Text = "?"
+    info.Font = Enum.Font.GothamBold
+    info.TextSize = 16
+    info.TextColor3 = T.Subtle
+    info.BackgroundColor3 = T.Ink
+    info.AutoButtonColor = false
+    info.ZIndex = 5
+    corner(info,11)
+    stroke(info,T.Stroke,1,0.25)
+    info.MouseEnter:Connect(function()
+        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Accent, TextColor3=T.Text}):Play()
+    end)
+    info.MouseLeave:Connect(function()
+        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Ink, TextColor3=T.Subtle}):Play()
+    end)
+    attachTooltip(info, helpText)
+
+    local l=Instance.new("TextLabel", r)
+    l.BackgroundTransparency=1
+    l.Position=UDim2.new(0,40,0,0)
+    l.Size=UDim2.new(1,-196,1,0)
+    l.Text=name
+    l.TextColor3=T.Text
+    l.Font=Enum.Font.Gotham
+    l.TextSize=14
+    l.TextXAlignment=Enum.TextXAlignment.Left
+    return r,l,info
 end
 
-local function mkToggle(parent, name, default, cb)
-    local r,_=rowBase(parent,name)
+local function mkToggle(parent, name, default, cb, desc)
+    local r,_=rowBase(parent,name,desc)
     local sw=Instance.new("Frame", r); sw.Size=UDim2.new(0,68,0,28); sw.Position=UDim2.new(1,-84,0.5,-14); sw.BackgroundColor3=T.Ink; corner(sw,16); stroke(sw,T.Stroke,1,0.35)
     local k=Instance.new("Frame", sw); k.Size=UDim2.new(0,24,0,24); k.Position=UDim2.new(0,2,0.5,-12); k.BackgroundColor3=Color3.fromRGB(235,235,245); corner(k,12)
     local state = default
@@ -347,8 +471,8 @@ local function mkToggle(parent, name, default, cb)
     return {Row=r, Set=set, Get=function() return state end}
 end
 
-local function mkSlider(parent, name, min, max, default, cb, unit)
-    local r,l=rowBase(parent,name)
+local function mkSlider(parent, name, min, max, default, cb, unit, desc)
+    local r,l=rowBase(parent,name,desc)
     local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,110,1,0); v.Position=UDim2.new(1,-118,0,0)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
     local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-24,0,6); bar.Position=UDim2.new(0,12,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
@@ -375,8 +499,8 @@ local function mkSlider(parent, name, min, max, default, cb, unit)
 end
 
 -- simple button control (used for Kill Menu)
-local function mkButton(parent, name, onClick, opts)
-    local r,_ = rowBase(parent, name)
+local function mkButton(parent, name, onClick, opts, desc)
+    local r,_ = rowBase(parent, name, desc)
     -- make the label take full width, then place a button pill on the right
     local btn = Instance.new("TextButton", r)
     btn.Size = UDim2.new(0, 120, 0, 30)
@@ -407,8 +531,8 @@ local function mkButton(parent, name, onClick, opts)
     return {Row=r, Button=btn}
 end
 
-local function mkCycle(parent, name, options, default, cb)
-    local r,_ = rowBase(parent, name)
+local function mkCycle(parent, name, options, default, cb, desc)
+    local r,_ = rowBase(parent, name, desc)
     local btn = Instance.new("TextButton", r)
     btn.Size = UDim2.new(0, 120, 0, 30)
     btn.Position = UDim2.new(1, -132, 0.5, -15)
@@ -853,46 +977,46 @@ tabButton("Config", ConfP)
 AimbotP.Visible = true
 
 -- Aimbot block
-mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end)
-mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end)
-mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end)
-mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end)
-mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px")
-mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px")
-mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end)
-mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs")
-mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs")
+mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Turns the aimbot feature on or off.")
+mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only activates the aimbot while the right mouse button is held down.")
+mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Skips targets that are blocked by walls or other geometry.")
+mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Displays the aiming field-of-view circle on your screen.")
+mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Sets the radius of the aim assist field-of-view circle in pixels.")
+mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px", "Defines an inner deadzone where the aimbot will not move the camera.")
+mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Controls how strongly the camera lerps toward the target (lower means snappier).")
+mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Limits aiming to targets within this distance.")
+mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs", "Ignores targets that are closer than this distance.")
 local targetPriority = mkCycle(AimbotP,"Target Priority", {
     {label="Hybrid (angle+distance)", value="Hybrid"},
     {label="Closest Angle", value="Angle"},
     {label="Closest Distance", value="Distance"},
     {label="Lowest Health", value="Health"},
-}, AA.TargetSort, function(val) AA.TargetSort=val end)
-local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end)
+}, AA.TargetSort, function(val) AA.TargetSort=val end, "Chooses how potential targets are ranked before aiming.")
+local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end,nil, "Adjusts how much distance influences the hybrid priority mode.")
 local dynamicPartToggle
-dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end)
-local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end)
+dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end, "Automatically chooses which body part to aim at based on target movement.")
+local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end, "Selects the specific body part to aim at when auto selection is disabled.")
 local stickyToggle = mkToggle(AimbotP,"Sticky Aim (keep last target)", AA.StickyAim, function(v)
     AA.StickyAim=v
     if not v then stickyTarget=nil; stickyTimer=0 end
-end)
+end, "Keeps following the most recent target for a short period even if they leave the FOV.")
 local stickyDuration = mkSlider(AimbotP,"Sticky Duration", 0.1, 1.5, AA.StickTime, function(x)
     AA.StickTime=x
     stickyTimer = math.min(stickyTimer, AA.StickTime)
-end,"s")
-local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s")
-local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s")
-local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end)
-local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end)
-local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s")
-local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs")
+end,"s", "How long sticky aim should hold onto the previous target.")
+local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s", "Adds a delay before the aimbot begins to adjust toward a target.")
+local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s", "Adds random variation to the reaction delay for a more human feel.")
+local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end, "Boosts smoothing strength as enemies move closer to you.")
+local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end,nil, "Amount of extra smoothing applied when targets are nearby.")
+local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s", "Predicts where moving targets will be after this many seconds.")
+local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs", "Shifts the aim point up or down relative to the target.")
 
 -- Recoil sub-section
-local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end)
-local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end)
-local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end)
-local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end)
-local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end)
+local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
+local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
+local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Sets how much vertical recoil is counteracted.")
+local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Sets how much horizontal recoil is counteracted.")
+local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
 local function refreshRCUI()
     local on=RC.Enabled
     setInteractable(rcShoot.Row,on); setInteractable(rcV.Row,on); setInteractable(rcH.Row,on); setInteractable(rcS.Row,on)
@@ -905,23 +1029,23 @@ end
 RunService.RenderStepped:Connect(refreshRCUI)
 
 -- ESP
-mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end)
-mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end)
-mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end)
-mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs")
-mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end)
-mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end)
-mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end)
+mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turns highlight ESP visuals on or off.")
+mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Only shows ESP highlights on enemy players.")
+mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Restricts ESP to players within the max distance slider.")
+mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Sets the farthest distance that ESP highlights will appear.")
+mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end, "Forces highlight outlines to show even through walls.")
+mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end,nil, "Adjusts how solid the ESP highlight fill appears.")
+mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end,nil, "Adjusts how visible the ESP outline is.")
 
 -- Visuals
-local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end)
-mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end)
-mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end)
-mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end)
-mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end)
-local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end)
-local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end)
-local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end)
+local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Shows or hides the custom crosshair overlay.")
+mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Sets how transparent the crosshair appears.")
+mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Controls the overall length of the crosshair lines.")
+mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Adjusts the gap between the crosshair arms and the center.")
+mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Changes how thick each crosshair arm is.")
+local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Adds a dot to the middle of the crosshair.")
+local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Sets the size of the center dot.")
+local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Controls the transparency of the center dot.")
 local teamColorToggle
 local rainbowToggle
 teamColorToggle = mkToggle(VisualP,"Use Team Color", Cross.UseTeamColor, function(v)
@@ -931,7 +1055,7 @@ teamColorToggle = mkToggle(VisualP,"Use Team Color", Cross.UseTeamColor, functio
         rainbowToggle.Set(false)
     end
     updCross()
-end)
+end, "Applies your current team color to the crosshair.")
 rainbowToggle = mkToggle(VisualP,"Rainbow Cycle", Cross.Rainbow, function(v)
     Cross.Rainbow=v
     if v and teamColorToggle then
@@ -939,10 +1063,10 @@ rainbowToggle = mkToggle(VisualP,"Rainbow Cycle", Cross.Rainbow, function(v)
         teamColorToggle.Set(false)
     end
     updCross()
-end)
-local rainbowSpeed = mkSlider(VisualP,"Rainbow Speed", 0.2, 3, Cross.RainbowSpeed, function(x) Cross.RainbowSpeed=x; updCross() end)
-local pulseToggle = mkToggle(VisualP,"Pulse Opacity", Cross.Pulse, function(v) Cross.Pulse=v; updCross() end)
-local pulseSpeed = mkSlider(VisualP,"Pulse Speed", 0.5, 5, Cross.PulseSpeed, function(x) Cross.PulseSpeed=x; updCross() end)
+end, "Cycles crosshair colors through a rainbow gradient.")
+local rainbowSpeed = mkSlider(VisualP,"Rainbow Speed", 0.2, 3, Cross.RainbowSpeed, function(x) Cross.RainbowSpeed=x; updCross() end,nil, "Controls how quickly the rainbow effect animates.")
+local pulseToggle = mkToggle(VisualP,"Pulse Opacity", Cross.Pulse, function(v) Cross.Pulse=v; updCross() end, "Makes the crosshair fade in and out repeatedly.")
+local pulseSpeed = mkSlider(VisualP,"Pulse Speed", 0.5, 5, Cross.PulseSpeed, function(x) Cross.PulseSpeed=x; updCross() end,nil, "Sets the speed of the crosshair opacity pulse.")
 RunService.RenderStepped:Connect(function()
     local on=Cross.CenterDot; setInteractable(dotS.Row,on); setInteractable(dotO.Row,on)
     if rainbowSpeed then setInteractable(rainbowSpeed.Row, Cross.Rainbow) end
@@ -950,16 +1074,16 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Misc
-mkToggle(MiscP,"Press K to toggle UI", true, function() end)
+mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Reminder that you can press K to hide or show the panel.")
 local dragToggle = mkToggle(MiscP,"Allow Dragging", true, function(v)
     draggingEnabled = v
     if not v then dragging=false end
-end)
+end, "Enables dragging the window around the screen.")
 local centerBtn = mkButton(MiscP, "Center Panel", function()
     Root.Position = UDim2.fromScale(0.5,0.5)
     dragging = false
-end, {buttonText="Center"})
-local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x")
+end, {buttonText="Center"}, "Recenters the panel on your screen.")
+local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x", "Changes the overall size of the menu UI.")
 
 -- Kill Menu logic
 local function killMenu()
@@ -969,6 +1093,7 @@ local function killMenu()
     if SuccessGui then SuccessGui.Enabled = false end
     if AA_GUI then AA_GUI.Enabled = false end
     if CrossGui then CrossGui.Enabled = false end
+    Tooltip.Visible = false
     -- remove blur
     TweenService:Create(Blur, TweenInfo.new(0.15), {Size = 0}):Play()
     Blur.Enabled = false
@@ -989,7 +1114,7 @@ UserInputService.InputBegan:Connect(function(i)
 end)
 
 -- Button to kill menu
-mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, {danger=true, buttonText="Kill Menu"})
+mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, {danger=true, buttonText="Kill Menu"}, "Completely closes the UI and disables every feature until re-executed.")
 
 -- Config / profiles
 local BASE="ProfitCruiser"; local PROF=BASE.."/Profiles"; local MODE="memory"; local MEM=rawget(_G,"PC_ProfileStore") or {}; _G.PC_ProfileStore=MEM
@@ -1001,8 +1126,8 @@ local function apply(s) if not s then return end deep(RC,s.RC or {}); deep(AA,s.
 local function save(name) local ok,data=pcall(function() return HttpService:JSONEncode(gather()) end); if not ok then return false,"encode" end if MODE=="filesystem" then local p=PROF.."/"..name..".json"; local s,err=pcall(function() writefile(p,data) end); return s,(s and nil or tostring(err)) else MEM[name]=data; return true end end
 local function load(name) if MODE=="filesystem" then local p=PROF.."/"..name..".json"; if not (isfile and isfile(p)) then return false,"missing" end local ok,raw=pcall(function() return readfile(p) end); if not ok then return false,"read" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true else local raw=MEM[name]; if not raw then return false,"missing" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true end end
 
-local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end)
-local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end)
+local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Saves your current settings into the Default profile slot.")
+local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Loads the Default profile back into all features.")
 
 -- Show panel when gate closes (only if allowed by flow)
 Gate:GetPropertyChangedSignal("Enabled"):Connect(function()
