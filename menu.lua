@@ -78,43 +78,120 @@ local Dim = Instance.new("Frame", Gate)
 Dim.BackgroundColor3=Color3.new(0,0,0); Dim.BackgroundTransparency=0.35; Dim.Size=UDim2.fromScale(1,1)
 
 local Card = Instance.new("Frame", Gate)
-Card.Size=UDim2.fromOffset(540, 320); Card.AnchorPoint=Vector2.new(0.5,0.5); Card.Position=UDim2.fromScale(0.5,0.5)
-Card.BackgroundColor3=T.Card; stroke(Card,T.Stroke,1,0.45); corner(Card,18); pad(Card,18)
+Card.Size=UDim2.fromOffset(600, 360); Card.AnchorPoint=Vector2.new(0.5,0.5); Card.Position=UDim2.fromScale(0.5,0.5)
+Card.BackgroundColor3=T.Card; stroke(Card,T.Stroke,1,0.45); corner(Card,18); pad(Card,22)
 
-local Title = Instance.new("TextLabel", Card)
-Title.BackgroundTransparency=1; Title.Text="ProfitCruiser — Access"; Title.Font=Enum.Font.GothamBold; Title.TextSize=20; Title.TextColor3=T.Text
-Title.Size=UDim2.new(1,0,0,24); Title.TextXAlignment=Enum.TextXAlignment.Left
+local CardLayout = Instance.new("UIListLayout", Card)
+CardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+CardLayout.Padding   = UDim.new(0, 12)
 
-local Hint = Instance.new("TextLabel", Card)
-Hint.BackgroundTransparency=1; Hint.Text="Paste your key. Use Get Key or join Discord."; Hint.Font=Enum.Font.Gotham; Hint.TextSize=14; Hint.TextColor3=T.Subtle
-Hint.Size=UDim2.new(1,0,0,20); Hint.Position=UDim2.new(0,0,0,30); Hint.TextXAlignment=Enum.TextXAlignment.Left
+local Hero = Instance.new("Frame", Card)
+Hero.Name = "Hero"; Hero.Size = UDim2.new(1,0,0,128); Hero.LayoutOrder = 1; Hero.BackgroundColor3 = T.Accent; Hero.BackgroundTransparency = 0.7
+Hero.ZIndex = 2; Hero.ClipsDescendants = true; corner(Hero,16); stroke(Hero,T.Stroke,1,0.28)
 
-local KeyBox = Instance.new("TextBox", Card)
-KeyBox.Size=UDim2.new(1,0,0,40); KeyBox.Position=UDim2.new(0,0,0,64); KeyBox.Text=""; KeyBox.PlaceholderText="Enter key…"
-KeyBox.ClearTextOnFocus=false; KeyBox.Font=Enum.Font.Gotham; KeyBox.TextSize=15; KeyBox.TextColor3=T.Text
-KeyBox.BackgroundColor3=T.Ink; stroke(KeyBox,T.Stroke,1,0.35); corner(KeyBox,12)
+local heroGradient = Instance.new("UIGradient", Hero)
+heroGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, T.Accent),
+    ColorSequenceKeypoint.new(1, T.Neon)
+})
+heroGradient.Rotation = 28
+heroGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.22),
+    NumberSequenceKeypoint.new(1, 0.32)
+})
+
+local heroPad = Instance.new("UIPadding", Hero)
+heroPad.PaddingTop = UDim.new(0, 18); heroPad.PaddingBottom = UDim.new(0, 18)
+heroPad.PaddingLeft = UDim.new(0, 20); heroPad.PaddingRight = UDim.new(0, 20)
+
+local heroLayout = Instance.new("UIListLayout", Hero)
+heroLayout.SortOrder = Enum.SortOrder.LayoutOrder; heroLayout.Padding = UDim.new(0, 8)
+
+local Pill = Instance.new("TextLabel", Hero)
+Pill.BackgroundTransparency = 0.2; Pill.BackgroundColor3 = T.Ink; Pill.LayoutOrder = 1
+Pill.Size = UDim2.new(0, 150, 0, 26); Pill.Font = Enum.Font.GothamBold; Pill.TextSize = 13
+Pill.Text = "ACCESS PASS"; Pill.TextColor3 = T.Text; Pill.TextXAlignment = Enum.TextXAlignment.Center
+Pill.ZIndex = 3
+corner(Pill, 13); stroke(Pill, T.Stroke, 1, 0.5)
+
+local Title = Instance.new("TextLabel", Hero)
+Title.BackgroundTransparency=1; Title.Text="ProfitCruiser — Access Portal"; Title.Font=Enum.Font.GothamBlack; Title.TextSize=24; Title.TextColor3=T.Text
+Title.Size=UDim2.new(1,0,0,34); Title.TextXAlignment=Enum.TextXAlignment.Left; Title.LayoutOrder = 2; Title.ZIndex = 3
+
+local Hint = Instance.new("TextLabel", Hero)
+Hint.BackgroundTransparency=1; Hint.Text="Paste your private key to unlock Aurora. Grab a new key or meet the crew on Discord for instant drops."; Hint.Font=Enum.Font.Gotham
+Hint.TextSize=14; Hint.TextColor3=T.Text; Hint.TextWrapped=true; Hint.TextXAlignment=Enum.TextXAlignment.Left; Hint.TextYAlignment=Enum.TextYAlignment.Top
+Hint.Size=UDim2.new(1,0,0,44); Hint.LayoutOrder = 3; Hint.ZIndex = 3
+
+local Features = Instance.new("TextLabel", Hero)
+Features.BackgroundTransparency = 1; Features.Text = "⚡ Rapid updates    🛡️ Anti-ban shielding    🎯 Elite aim assist"
+Features.Font = Enum.Font.Gotham; Features.TextSize = 13; Features.TextColor3 = T.Subtle; Features.TextXAlignment = Enum.TextXAlignment.Left
+Features.Size = UDim2.new(1,0,0,22); Features.LayoutOrder = 4; Features.ZIndex = 3
+
+local InputSection = Instance.new("Frame", Card)
+InputSection.BackgroundColor3 = T.Panel; InputSection.BackgroundTransparency = 0.05; InputSection.Size = UDim2.new(1,0,0,120)
+InputSection.LayoutOrder = 2; corner(InputSection,14); stroke(InputSection,T.Stroke,1,0.28)
+
+local inputPad = Instance.new("UIPadding", InputSection)
+inputPad.PaddingTop = UDim.new(0, 14); inputPad.PaddingBottom = UDim.new(0, 14)
+inputPad.PaddingLeft = UDim.new(0, 18); inputPad.PaddingRight = UDim.new(0, 18)
+
+local inputLayout = Instance.new("UIListLayout", InputSection)
+inputLayout.SortOrder = Enum.SortOrder.LayoutOrder; inputLayout.Padding = UDim.new(0, 8)
+
+local KeyLabel = Instance.new("TextLabel", InputSection)
+KeyLabel.BackgroundTransparency = 1; KeyLabel.Text = "Master Key"; KeyLabel.Font = Enum.Font.GothamMedium; KeyLabel.TextSize = 15
+KeyLabel.TextColor3 = T.Text; KeyLabel.TextXAlignment = Enum.TextXAlignment.Left; KeyLabel.Size = UDim2.new(1,0,0,22)
+KeyLabel.LayoutOrder = 1
+
+local KeyBox = Instance.new("TextBox", InputSection)
+KeyBox.Size=UDim2.new(1,0,0,40); KeyBox.Text=""; KeyBox.PlaceholderText="Paste key or drop to auto-fill…"
+KeyBox.ClearTextOnFocus=false; KeyBox.Font=Enum.Font.Gotham; KeyBox.TextSize=16; KeyBox.TextColor3=T.Text
+KeyBox.BackgroundColor3=T.Ink; stroke(KeyBox,T.Stroke,1,0.35); corner(KeyBox,12); KeyBox.LayoutOrder = 2
+
+local KeyNote = Instance.new("TextLabel", InputSection)
+KeyNote.BackgroundTransparency = 1; KeyNote.Text = "Keys rotate fast — confirm before the cycle resets. Discord pings fire instantly."
+KeyNote.Font = Enum.Font.Gotham; KeyNote.TextSize = 12; KeyNote.TextColor3 = T.Subtle; KeyNote.TextWrapped = true
+KeyNote.TextXAlignment = Enum.TextXAlignment.Left; KeyNote.TextYAlignment = Enum.TextYAlignment.Top
+KeyNote.Size = UDim2.new(1,0,0,32); KeyNote.LayoutOrder = 3
+
+local Divider = Instance.new("Frame", Card)
+Divider.BackgroundColor3 = T.Stroke; Divider.BackgroundTransparency = 0.55; Divider.Size = UDim2.new(1,0,0,1); Divider.LayoutOrder = 3
 
 local Row = Instance.new("Frame", Card)
-Row.BackgroundTransparency=1; Row.Size=UDim2.new(1,0,0,42); Row.Position=UDim2.new(0,0,0,118)
-local grid = Instance.new("UIGridLayout", Row)
-grid.CellSize=UDim2.fromOffset(150,38); grid.CellPadding=UDim2.new(0,12,0,0); grid.HorizontalAlignment=Enum.HorizontalAlignment.Left; grid.FillDirectionMaxCells=3
+Row.BackgroundTransparency=1; Row.Size=UDim2.new(1,0,0,48); Row.LayoutOrder = 4
 
-local function btn(text)
-    local b=Instance.new("TextButton", Row); b.Text=text; b.Font=Enum.Font.GothamMedium; b.TextSize=14; b.TextColor3=T.Text
-    b.BackgroundColor3=T.Ink; b.AutoButtonColor=false; b.Size=UDim2.fromOffset(150,38)
-    stroke(b,T.Stroke,1,0.35); corner(b,12)
-    b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Accent}):Play() end)
-    b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=T.Ink}):Play() end)
+local rowLayout = Instance.new("UIListLayout", Row)
+rowLayout.FillDirection = Enum.FillDirection.Horizontal; rowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center; rowLayout.Padding = UDim.new(0, 14)
+
+local function btn(text, style)
+    local b=Instance.new("TextButton", Row); b.Text=text; b.Font=Enum.Font.GothamMedium; b.TextSize=15; b.TextColor3=T.Text
+    b.AutoButtonColor=false; b.Size=UDim2.new(0,172,0,42); b.LayoutOrder = style == "primary" and 3 or 1
+    local isPrimary = style == "primary"
+    local baseColor = isPrimary and T.Accent or T.Ink
+    local hoverColor = isPrimary and T.Neon or Color3.fromRGB(58, 52, 88)
+    b.BackgroundColor3=baseColor; stroke(b,T.Stroke,1,0.35); corner(b,12)
+    b.MouseEnter:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=hoverColor}):Play() end)
+    b.MouseLeave:Connect(function() TweenService:Create(b,TweenInfo.new(0.12),{BackgroundColor3=baseColor}):Play() end)
     return b
 end
 
-local GetKey = btn("Get Key")
-local Discord = btn("Discord")
-local Confirm = btn("Confirm")
+local GetKey = btn("Get Key Link")
+local Discord = btn("Join Discord")
+local Confirm = btn("Unlock Panel", "primary")
 
 local Status = Instance.new("TextLabel", Card)
-Status.BackgroundTransparency=1; Status.Text=""; Status.Font=Enum.Font.Gotham; Status.TextSize=13; Status.TextColor3=T.Subtle
-Status.Size=UDim2.new(1,0,0,20); Status.Position=UDim2.new(0,0,0,168); Status.TextXAlignment=Enum.TextXAlignment.Left
+Status.BackgroundColor3 = T.Ink; Status.BackgroundTransparency = 0.6; Status.Text=""; Status.Font=Enum.Font.Gotham
+Status.TextSize=13; Status.TextColor3=T.Subtle; Status.Size=UDim2.new(1,0,0,28); Status.LayoutOrder = 5
+Status.TextXAlignment=Enum.TextXAlignment.Center; Status.TextYAlignment = Enum.TextYAlignment.Center; corner(Status,12)
+
+local function updateStatus(text, color)
+    Status.Text = text
+    Status.TextColor3 = color or T.Subtle
+end
+
+updateStatus("Paste your key to unlock ProfitCruiser.")
 
 -- Success overlay in its own GUI so it survives hiding Gate
 local SuccessGui = Instance.new("ScreenGui")
@@ -141,11 +218,16 @@ local function fetchRemoteKey()
 end
 
 GetKey.MouseButton1Click:Connect(function()
-    if typeof(setclipboard)=="function" then setclipboard(GET_KEY_URL); Status.Text="Key link copied." else Status.Text="Key link: "..GET_KEY_URL end
+    if typeof(setclipboard)=="function" then
+        setclipboard(GET_KEY_URL)
+        updateStatus("Key link copied to clipboard.", T.Neon)
+    else
+        updateStatus("Key link: "..GET_KEY_URL)
+    end
 end)
 Discord.MouseButton1Click:Connect(function()
     if typeof(setclipboard)=="function" then setclipboard(DISCORD_URL) end
-    Status.Text="Discord link copied."
+    updateStatus("Discord invite copied — we'll see you inside!", T.Neon)
     if syn and syn.request then pcall(function() syn.request({Url=DISCORD_URL,Method="GET"}) end) end
 end)
 
@@ -159,12 +241,12 @@ local function showGranted(seconds, after)
 end
 
 Confirm.MouseButton1Click:Connect(function()
-    Status.Text = "Checking key…"
+    updateStatus("Checking key…", T.Text)
     local expected,err = fetchRemoteKey()
-    if not expected then Status.Text = "Fetch failed: "..tostring(err or "") return end
+    if not expected then updateStatus("Fetch failed: "..tostring(err or ""), T.Warn) return end
 
     if trim(KeyBox.Text) == expected then
-        Status.Text = "Accepted!"
+        updateStatus("Accepted!", T.Good)
 
         -- Immediately hide the gate UI so the key box is gone
         Gate.Enabled = false
@@ -188,7 +270,7 @@ Confirm.MouseButton1Click:Connect(function()
         end)
 
     else
-        Status.Text = "Wrong key."
+        updateStatus("Wrong key.", T.Warn)
     end
 end)
 
@@ -212,102 +294,6 @@ Root.Visible=false
 
 local PanelScale = Instance.new("UIScale", Root)
 PanelScale.Scale = 1
-
--- shared tooltip for control question marks
-local Tooltip = Instance.new("Frame", App)
-Tooltip.Visible = false
-Tooltip.AnchorPoint = Vector2.new(0, 0)
-Tooltip.Position = UDim2.fromOffset(0, 0)
-Tooltip.Size = UDim2.new(0, 280, 0, 0)
-Tooltip.AutomaticSize = Enum.AutomaticSize.Y
-Tooltip.BackgroundColor3 = T.Panel
-Tooltip.ZIndex = 300
-corner(Tooltip, 8)
-stroke(Tooltip, T.Stroke, 1, 0.2)
-
-local tipPadding = Instance.new("UIPadding", Tooltip)
-tipPadding.PaddingTop = UDim.new(0, 8)
-tipPadding.PaddingBottom = UDim.new(0, 8)
-tipPadding.PaddingLeft = UDim.new(0, 10)
-tipPadding.PaddingRight = UDim.new(0, 10)
-
-local TooltipLabel = Instance.new("TextLabel", Tooltip)
-TooltipLabel.BackgroundTransparency = 1
-TooltipLabel.Font = Enum.Font.Gotham
-TooltipLabel.TextSize = 13
-TooltipLabel.TextColor3 = T.Text
-TooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
-TooltipLabel.TextYAlignment = Enum.TextYAlignment.Top
-TooltipLabel.AutomaticSize = Enum.AutomaticSize.Y
-TooltipLabel.TextWrapped = true
-TooltipLabel.Size = UDim2.new(1, 0, 0, 0)
-
-local function positionTooltip()
-    local mouse = UserInputService:GetMouseLocation()
-    local vp = Camera.ViewportSize
-    local padding = Vector2.new(16, 18)
-    local desiredX = mouse.X + padding.X
-    local desiredY = mouse.Y + padding.Y
-    local size = Tooltip.AbsoluteSize
-    if desiredX + size.X > vp.X - 12 then
-        desiredX = math.max(12, vp.X - size.X - 12)
-    end
-    if desiredY + size.Y > vp.Y - 12 then
-        desiredY = math.max(12, vp.Y - size.Y - 12)
-    end
-    Tooltip.Position = UDim2.fromOffset(desiredX, desiredY)
-end
-
-local function showTooltip(text)
-    TooltipLabel.Text = text
-    TooltipLabel.TextTransparency = 0
-    Tooltip.Visible = true
-    positionTooltip()
-end
-
-local function hideTooltip()
-    Tooltip.Visible = false
-end
-
-UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
-        positionTooltip()
-    end
-end)
-
-local function attachTooltip(object, text)
-    local localToken = 0
-    local hovering = false
-    local function endHover()
-        hovering = false
-        localToken += 1
-        hideTooltip()
-    end
-    object.MouseEnter:Connect(function()
-        hovering = true
-        localToken += 1
-        local thisToken = localToken
-        task.delay(0.25, function()
-            if hovering and thisToken == localToken then
-                local tip = typeof(text) == "function" and text() or text
-                tip = trim(tip)
-                if tip ~= "" then
-                    showTooltip(tip)
-                end
-            end
-        end)
-    end)
-    object.MouseLeave:Connect(endHover)
-    object.MouseButton1Down:Connect(endHover)
-    object.MouseButton1Up:Connect(endHover)
-    if object:IsA("GuiObject") then
-        object.MouseMoved:Connect(function()
-            if Tooltip.Visible then
-                positionTooltip()
-            end
-        end)
-    end
-end
 
 local Top = Instance.new("Frame", Root)
 Top.Size=UDim2.new(1, -16, 0, 46); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,12); stroke(Top,T.Stroke,1,0.45); pad(Top,10)
@@ -420,41 +406,37 @@ end
 
 -- Controls factory (compact, reused)
 local function rowBase(parent, name, desc)
-    local helpText = desc or name
-    local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0,56)
+    local infoText = trim(desc or "")
+    local hasDesc = infoText ~= ""
+    local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0, hasDesc and 74 or 56)
     corner(r,10); stroke(r,T.Stroke,1,0.25)
-
-    local info = Instance.new("TextButton", r)
-    info.Name = "Info"
-    info.Size = UDim2.fromOffset(22,22)
-    info.Position = UDim2.new(0,12,0.5,-11)
-    info.Text = "?"
-    info.Font = Enum.Font.GothamBold
-    info.TextSize = 16
-    info.TextColor3 = T.Subtle
-    info.BackgroundColor3 = T.Ink
-    info.AutoButtonColor = false
-    info.ZIndex = 5
-    corner(info,11)
-    stroke(info,T.Stroke,1,0.25)
-    info.MouseEnter:Connect(function()
-        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Accent, TextColor3=T.Text}):Play()
-    end)
-    info.MouseLeave:Connect(function()
-        TweenService:Create(info,TweenInfo.new(0.12),{BackgroundColor3=T.Ink, TextColor3=T.Subtle}):Play()
-    end)
-    attachTooltip(info, helpText)
 
     local l=Instance.new("TextLabel", r)
     l.BackgroundTransparency=1
-    l.Position=UDim2.new(0,40,0,0)
-    l.Size=UDim2.new(1,-196,1,0)
+    l.Position=UDim2.new(0,18,0, hasDesc and 6 or 0)
+    l.Size=UDim2.new(1,-176,0, hasDesc and 26 or 56)
     l.Text=name
     l.TextColor3=T.Text
     l.Font=Enum.Font.Gotham
     l.TextSize=14
     l.TextXAlignment=Enum.TextXAlignment.Left
-    return r,l,info
+    l.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+
+    if hasDesc then
+        local sub = Instance.new("TextLabel", r)
+        sub.BackgroundTransparency = 1
+        sub.Position = UDim2.new(0,18,0,34)
+        sub.Size = UDim2.new(1,-176,0,26)
+        sub.Font = Enum.Font.Gotham
+        sub.Text = infoText
+        sub.TextColor3 = T.Subtle
+        sub.TextSize = 12
+        sub.TextXAlignment = Enum.TextXAlignment.Left
+        sub.TextYAlignment = Enum.TextYAlignment.Top
+        sub.TextWrapped = true
+    end
+
+    return r,l
 end
 
 local function mkToggle(parent, name, default, cb, desc)
@@ -475,9 +457,14 @@ end
 
 local function mkSlider(parent, name, min, max, default, cb, unit, desc)
     local r,l=rowBase(parent,name,desc)
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,1,0); v.Position=UDim2.new(1,-128,0,0)
+    local hasDesc = trim(desc or "") ~= ""
+    local topOffset = hasDesc and 6 or 0
+    local vHeight = hasDesc and 26 or 56
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,0,vHeight); v.Position=UDim2.new(1,-128,0,topOffset)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-168,0,6); bar.Position=UDim2.new(0,40,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    v.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+    local barY = hasDesc and 50 or 38
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-160,0,6); bar.Position=UDim2.new(0,18,0,barY); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
@@ -1095,7 +1082,6 @@ local function killMenu()
     if SuccessGui then SuccessGui.Enabled = false end
     if AA_GUI then AA_GUI.Enabled = false end
     if CrossGui then CrossGui.Enabled = false end
-    Tooltip.Visible = false
     -- remove blur
     TweenService:Create(Blur, TweenInfo.new(0.15), {Size = 0}):Play()
     Blur.Enabled = false
