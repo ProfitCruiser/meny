@@ -1042,46 +1042,46 @@ tabButton("Config", ConfP)
 AimbotP.Visible = true
 
 -- Aimbot block
-mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Turns the aimbot feature on or off.")
-mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only activates the aimbot while the right mouse button is held down.")
-mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Skips targets that are blocked by walls or other geometry.")
-mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Displays the aiming field-of-view circle on your screen.")
-mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Sets the radius of the aim assist field-of-view circle in pixels.")
-mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px", "Defines an inner deadzone where the aimbot will not move the camera.")
-mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Controls how strongly the camera lerps toward the target (lower means snappier).")
-mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Limits aiming to targets within this distance.")
-mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs", "Ignores targets that are closer than this distance.")
+mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Master switch for the aim assist. Turn this off to disable every aimbot adjustment instantly.")
+mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only lets the aimbot steer your camera while you are holding right-click, keeping normal look movement the rest of the time.")
+mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Skips any target that does not have a clear sight line. Disable if you want to aim through cover.")
+mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Draws a circle on screen that represents the aimbot capture zone so you always know when someone is eligible.")
+mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Changes how wide the capture circle is (in pixels). Larger values grab targets more easily but look less legitimate.")
+mkSlider(AimbotP,"Deadzone Padding", 0, 20, AA.Deadzone, function(x) AA.Deadzone=x end,"px", "Creates a safe bubble around the crosshair (in pixels) where the aimbot refuses to move, preventing tiny jitter.")
+mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Controls the lerp strength toward the target. Lower numbers snap harder, higher values keep motion slow and human-like.")
+mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Maximum distance (studs) the aimbot will consider. Keep this tight to avoid locking on distant players you cannot hit.")
+mkSlider(AimbotP,"Min Distance Gate", 0, 250, AA.MinDistance, function(x) AA.MinDistance=math.floor(x) end,"studs", "Minimum distance (studs) a target must be away before the aimbot engages. Use it to ignore melee-range threats.")
 local targetPriority = mkCycle(AimbotP,"Target Priority", {
     {label="Hybrid (angle+distance)", value="Hybrid"},
     {label="Closest Angle", value="Angle"},
     {label="Closest Distance", value="Distance"},
     {label="Lowest Health", value="Health"},
-}, AA.TargetSort, function(val) AA.TargetSort=val end, "Chooses how potential targets are ranked before aiming.")
-local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end,nil, "Adjusts how much distance influences the hybrid priority mode.")
+}, AA.TargetSort, function(val) AA.TargetSort=val end, "Select which stat is most important when picking a target. Hybrid blends aim angle with distance for natural snaps.")
+local distanceWeight = mkSlider(AimbotP,"Hybrid Distance Weight", 0, 0.08, AA.DistanceWeight, function(x) AA.DistanceWeight=x end,nil, "When on Hybrid priority, raise this to favor nearby enemies more. Lower values stay focused on aim angle.")
 local dynamicPartToggle
-dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end, "Automatically chooses which body part to aim at based on target movement.")
-local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end, "Selects the specific body part to aim at when auto selection is disabled.")
+dynamicPartToggle = mkToggle(AimbotP,"Auto Bone Selection", AA.DynamicPart, function(v) AA.DynamicPart=v end, "Lets the script swap between head/torso targets automatically to keep tracking smooth on fast movers.")
+local partCycle = mkCycle(AimbotP,"Manual Target Bone", {"Head","UpperTorso","HumanoidRootPart"}, AA.PartName, function(val) AA.PartName=val end, "Pick the exact body part to aim at when auto bone selection is turned off.")
 local stickyToggle = mkToggle(AimbotP,"Sticky Aim (keep last target)", AA.StickyAim, function(v)
     AA.StickyAim=v
     if not v then stickyTarget=nil; stickyTimer=0 end
-end, "Keeps following the most recent target for a short period even if they leave the FOV.")
+end, "Keeps locking onto the previous enemy for a short time after they leave your crosshair so flicks feel gluey.")
 local stickyDuration = mkSlider(AimbotP,"Sticky Duration", 0.1, 1.5, AA.StickTime, function(x)
     AA.StickTime=x
     stickyTimer = math.min(stickyTimer, AA.StickTime)
-end,"s", "How long sticky aim should hold onto the previous target.")
-local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s", "Adds a delay before the aimbot begins to adjust toward a target.")
-local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s", "Adds random variation to the reaction delay for a more human feel.")
-local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end, "Boosts smoothing strength as enemies move closer to you.")
-local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end,nil, "Amount of extra smoothing applied when targets are nearby.")
-local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s", "Predicts where moving targets will be after this many seconds.")
-local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs", "Shifts the aim point up or down relative to the target.")
+end,"s", "Seconds the sticky lock should persist after losing sight. Raise it for longer tracking between peeks.")
+local reactionDelay = mkSlider(AimbotP,"Reaction Delay", 0, 0.35, AA.ReactionDelay, function(x) AA.ReactionDelay=x end,"s", "Adds a human-like pause (seconds) before the aimbot starts turning after acquiring a target.")
+local reactionJitter = mkSlider(AimbotP,"Reaction Jitter", 0, 0.3, AA.ReactionJitter, function(x) AA.ReactionJitter=x end,"s", "Randomizes the reaction delay by up to this amount to avoid perfectly consistent timing.")
+local adaptiveToggle = mkToggle(AimbotP,"Adaptive Smoothing Boost", AA.AdaptiveSmoothing, function(v) AA.AdaptiveSmoothing=v end, "When enabled, close enemies get extra smoothing so the camera eases in instead of snapping instantly.")
+local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBoost, function(x) AA.CloseRangeBoost=x end,nil, "How much smoothing bonus to add when targets are within short range. Higher = softer movement up close.")
+local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s", "Predicts enemy travel by aiming ahead this many seconds. Helps hit runners and gliders.")
+local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs", "Raises or lowers the aim point in studs. Useful for accounting for bullet drop or head/torso preference.")
 
 -- Recoil sub-section
-local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
-local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
-local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Sets how much vertical recoil is counteracted.")
-local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Sets how much horizontal recoil is counteracted.")
-local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
+local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Toggle aim-punch compensation. Disable to fire with raw weapon recoil whenever you want manual control.")
+local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "When on, recoil control engages only while the trigger is held. Turn off to let it preload before firing.")
+local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Scale of vertical pull-down applied against recoil. Increase if guns still climb upward.")
+local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Scale of sideways correction to counter horizontal sway. Use low values to avoid overcompensation.")
+local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "How gradually the recoil control applies. Lower = snappier corrections, higher = gentle adjustments.")
 local function refreshRCUI()
     local on=RC.Enabled
     setInteractable(rcShoot.Row,on); setInteractable(rcV.Row,on); setInteractable(rcH.Row,on); setInteractable(rcS.Row,on)
@@ -1094,25 +1094,26 @@ end
 RunService.RenderStepped:Connect(refreshRCUI)
 
 -- ESP
-mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turns highlight ESP visuals on or off.")
-mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Only shows ESP highlights on enemy players.")
-mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Restricts ESP to players within the max distance slider.")
-mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Sets the farthest distance that ESP highlights will appear.")
-mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end, "Forces highlight outlines to show even through walls.")
-mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end,nil, "Adjusts how solid the ESP highlight fill appears.")
-mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end,nil, "Adjusts how visible the ESP outline is.")
+mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Master switch for character highlights. Turn off to hide every ESP visual instantly.")
+mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Limit highlights to opponents so teammates stay clean. Disable if you want to tag everyone.")
+mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Respect the distance slider before drawing ESP. Helpful to declutter far-away targets.")
+mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Maximum ESP range in studs. Shorter range improves performance and keeps the screen tidy.")
+mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end, "When enabled, outlines ignore occlusion so you can see enemies through walls at all times.")
+mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end,nil, "Opacity of the inside glow. Lower numbers = more solid color, higher = barely visible.")
+mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end,nil, "Opacity of the highlight outline. Reduce it if the border is too intense on screen.")
 
 -- Visuals
-local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Shows or hides the custom crosshair overlay.")
-mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Sets how transparent the crosshair appears.")
-mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Controls the overall length of the crosshair lines.")
-mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Adjusts the gap between the crosshair arms and the center.")
-mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Changes how thick each crosshair arm is.")
-local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Adds a dot to the middle of the crosshair.")
-local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Sets the size of the center dot.")
-local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Controls the transparency of the center dot.")
 local teamColorToggle
 local rainbowToggle
+local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Enables the custom crosshair overlay rendered by the script. Disable to fall back to the game default.")
+mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Overall visibility of the crosshair. Lower values make it faint, higher values make it fully solid.")
+mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Length of each crosshair arm in pixels. Increase for a larger reticle, decrease for compact aim.")
+mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Space between the center point and the start of the crosshair lines. Helpful for snipers or hip-fire.")
+mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Pixel thickness of each arm. Thicker lines are easier to track; thinner lines stay subtle.")
+local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Adds a solid dot at the center of the crosshair for precise tap firing.")
+local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Diameter of the center dot in pixels. Pair with opacity to get the perfect reference point.")
+local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Transparency of the center dot. Lower values make it ghosted; higher values keep it fully opaque.")
+
 teamColorToggle = mkToggle(VisualP,"Use Team Color", Cross.UseTeamColor, function(v)
     Cross.UseTeamColor=v
     if v and rainbowToggle then
@@ -1120,7 +1121,7 @@ teamColorToggle = mkToggle(VisualP,"Use Team Color", Cross.UseTeamColor, functio
         rainbowToggle.Set(false)
     end
     updCross()
-end, "Applies your current team color to the crosshair.")
+end, "Matches the crosshair tint to your current team color so it updates with team swaps.")
 rainbowToggle = mkToggle(VisualP,"Rainbow Cycle", Cross.Rainbow, function(v)
     Cross.Rainbow=v
     if v and teamColorToggle then
@@ -1128,10 +1129,10 @@ rainbowToggle = mkToggle(VisualP,"Rainbow Cycle", Cross.Rainbow, function(v)
         teamColorToggle.Set(false)
     end
     updCross()
-end, "Cycles crosshair colors through a rainbow gradient.")
-local rainbowSpeed = mkSlider(VisualP,"Rainbow Speed", 0.2, 3, Cross.RainbowSpeed, function(x) Cross.RainbowSpeed=x; updCross() end,nil, "Controls how quickly the rainbow effect animates.")
-local pulseToggle = mkToggle(VisualP,"Pulse Opacity", Cross.Pulse, function(v) Cross.Pulse=v; updCross() end, "Makes the crosshair fade in and out repeatedly.")
-local pulseSpeed = mkSlider(VisualP,"Pulse Speed", 0.5, 5, Cross.PulseSpeed, function(x) Cross.PulseSpeed=x; updCross() end,nil, "Sets the speed of the crosshair opacity pulse.")
+end, "Animates the crosshair through a rainbow gradient loop. Automatically disables team color mode when active.")
+local rainbowSpeed = mkSlider(VisualP,"Rainbow Speed", 0.2, 3, Cross.RainbowSpeed, function(x) Cross.RainbowSpeed=x; updCross() end,nil, "How fast the rainbow cycle animates. Smaller numbers are slow sweeps; higher numbers are flashy.")
+local pulseToggle = mkToggle(VisualP,"Pulse Opacity", Cross.Pulse, function(v) Cross.Pulse=v; updCross() end, "Makes the crosshair gently fade in and out to draw attention without staying fully solid.")
+local pulseSpeed = mkSlider(VisualP,"Pulse Speed", 0.5, 5, Cross.PulseSpeed, function(x) Cross.PulseSpeed=x; updCross() end,nil, "Speed of the opacity pulsing effect. Tune it to match the tempo you like.")
 RunService.RenderStepped:Connect(function()
     local on=Cross.CenterDot; setInteractable(dotS.Row,on); setInteractable(dotO.Row,on)
     if rainbowSpeed then setInteractable(rainbowSpeed.Row, Cross.Rainbow) end
@@ -1139,16 +1140,16 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Misc
-mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Reminder that you can press K to hide or show the panel.")
+mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Displays the hotkey reminder. Press K anytime to hide or show the entire panel.")
 local dragToggle = mkToggle(MiscP,"Allow Dragging", true, function(v)
     draggingEnabled = v
     if not v then dragging=false end
-end, "Enables dragging the window around the screen.")
+end, "When enabled you can drag the menu by its header. Turn off to lock the panel in place.")
 local centerBtn = mkButton(MiscP, "Center Panel", function()
     Root.Position = UDim2.fromScale(0.5,0.5)
     dragging = false
-end, {buttonText="Center"}, "Recenters the panel on your screen.")
-local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x", "Changes the overall size of the menu UI.")
+end, {buttonText="Center"}, "Instantly snaps the menu back to the middle of your screen and stops any current drag.")
+local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x", "Resizes the entire UI uniformly. Use it to shrink for low resolutions or enlarge for readability.")
 
 -- Kill Menu logic
 local function killMenu()
@@ -1179,7 +1180,7 @@ UserInputService.InputBegan:Connect(function(i)
 end)
 
 -- Button to kill menu
-mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, {danger=true, buttonText="Kill Menu"}, "Completely closes the UI and disables every feature until re-executed.")
+mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, {danger=true, buttonText="Kill Menu"}, "Emergency panic button. Removes every GUI, disables all features, and clears highlights until you run the script again.")
 
 -- Config / profiles
 local BASE="ProfitCruiser"; local PROF=BASE.."/Profiles"; local MODE="memory"; local MEM=rawget(_G,"PC_ProfileStore") or {}; _G.PC_ProfileStore=MEM
@@ -1191,8 +1192,8 @@ local function apply(s) if not s then return end deep(RC,s.RC or {}); deep(AA,s.
 local function save(name) local ok,data=pcall(function() return HttpService:JSONEncode(gather()) end); if not ok then return false,"encode" end if MODE=="filesystem" then local p=PROF.."/"..name..".json"; local s,err=pcall(function() writefile(p,data) end); return s,(s and nil or tostring(err)) else MEM[name]=data; return true end end
 local function load(name) if MODE=="filesystem" then local p=PROF.."/"..name..".json"; if not (isfile and isfile(p)) then return false,"missing" end local ok,raw=pcall(function() return readfile(p) end); if not ok then return false,"read" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true else local raw=MEM[name]; if not raw then return false,"missing" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true end end
 
-local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Saves your current settings into the Default profile slot.")
-local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Loads the Default profile back into all features.")
+local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Writes every setting into the Default profile slot. Click whenever you want to update your baseline config.")
+local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Restores the Default profile values into every feature. Use it to quickly revert experiments.")
 
 -- Show panel when gate closes (only if allowed by flow)
 Gate:GetPropertyChangedSignal("Enabled"):Connect(function()
