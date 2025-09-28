@@ -97,6 +97,7 @@ local CustomThemeOverrides = {
 }
 
 local ThemeBindings = {}
+local ThemeColorControls = {}
 local CurrentThemeName = "Dark"
 local T = table.clone(ThemePresets[CurrentThemeName])
 local KEY_ROTATION_SECONDS = 900
@@ -265,7 +266,7 @@ local BannerStates = {}
 local bannerOrderCounter = 0
 
 local function refreshStatusBanner()
-    if not StatusBanner then return end
+    if not (StatusBanner and StatusBanner.Parent) then return end
     local entries = {}
     for _, info in pairs(BannerStates) do
         entries[#entries + 1] = info
@@ -1794,8 +1795,6 @@ local function mkCycle(parent, name, options, default, cb, desc)
     registerControl(parent, name, r, setter, getter, control.Default, {desc = desc, type = "cycle", record = control})
     return control
 end
-
-local ThemeColorControls = {}
 
 local function mkThemeColor(parent, name, themeKey, desc)
     local row,_ = rowBase(parent, name, desc)
