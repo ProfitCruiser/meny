@@ -753,6 +753,7 @@ local ESP={
     FillTransparency=0.5,
     OutlineTransparency=0,
     ThroughWalls=true,
+    ColorIntensity=1,
 }
 local Cross={
     Enabled=false,
@@ -1047,6 +1048,14 @@ local function hl(model)
 end
 local function isEnemyESP(p) if not LocalPlayer.Team or not p.Team then return nil end return LocalPlayer.Team~=p.Team end
 local function distTo(c) local hrp=c and c:FindFirstChild("HumanoidRootPart"); local my=LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"); if hrp and my then return (hrp.Position-my.Position).Magnitude end return math.huge end
+local function tintESPColor(color)
+    local h,s,v = Color3.toHSV(color)
+    local intensity = math.clamp(ESP.ColorIntensity or 1, 0, 2)
+    v = math.clamp(v * intensity, 0, 1)
+    local satScale = math.clamp(0.55 + 0.45 * intensity, 0, 1.5)
+    s = math.clamp(s * satScale, 0, 1)
+    return Color3.fromHSV(h, s, v)
+end
 local function espTick(p)
     if p==LocalPlayer then return end
     local c=p.Character; if not c then return end
@@ -1058,9 +1067,16 @@ local function espTick(p)
     h.FillTransparency = math.clamp(ESP.FillTransparency, 0, 1)
     h.OutlineTransparency = math.clamp(ESP.OutlineTransparency, 0, 1)
     local e=isEnemyESP(p)
-    if e==true then h.FillColor=ESP.EnemyColor; h.OutlineColor=ESP.EnemyColor
-    elseif e==false then h.FillColor=ESP.FriendColor; h.OutlineColor=ESP.FriendColor
-    else h.FillColor=ESP.NeutralColor; h.OutlineColor=ESP.NeutralColor end
+    if e==true then
+        local col = tintESPColor(ESP.EnemyColor)
+        h.FillColor=col; h.OutlineColor=col
+    elseif e==false then
+        local col = tintESPColor(ESP.FriendColor)
+        h.FillColor=col; h.OutlineColor=col
+    else
+        local col = tintESPColor(ESP.NeutralColor)
+        h.FillColor=col; h.OutlineColor=col
+    end
 end
 RunService.RenderStepped:Connect(function() for _,pl in ipairs(Players:GetPlayers()) do espTick(pl) end end)
 Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function() task.wait(0.2); espTick(p) end) end)
@@ -1071,6 +1087,17 @@ local ESPP    = newPage("ESP")
 local VisualP = newPage("Visuals")
 local MiscP   = newPage("Misc")
 local ConfP   = newPage("Config")
+
+local ESPColorPresets = {
+    {label = "Crimson Pulse", value = Color3.fromRGB(255, 70, 70)},
+    {label = "Solar Gold", value = Color3.fromRGB(255, 255, 0)},
+    {label = "Toxic Lime", value = Color3.fromRGB(0, 255, 140)},
+    {label = "Electric Azure", value = Color3.fromRGB(90, 190, 255)},
+    {label = "Aurora Cyan", value = Color3.fromRGB(70, 255, 255)},
+    {label = "Royal Violet", value = Color3.fromRGB(180, 110, 255)},
+    {label = "Sunburst", value = Color3.fromRGB(255, 170, 60)},
+    {label = "Frostbite", value = Color3.fromRGB(210, 235, 255)},
+}
 
 -- create tabs (avoid firing signals programmatically)
 tabButton("Aimbot", AimbotP)
@@ -1141,6 +1168,10 @@ mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDist
 mkToggle(ESPP,"Render Through Walls", ESP.ThroughWalls, function(v) ESP.ThroughWalls=v end, "Forces highlight outlines to show even through walls.")
 mkSlider(ESPP,"Fill Transparency", 0, 1, ESP.FillTransparency, function(x) ESP.FillTransparency=x end,nil, "Adjusts how solid the ESP highlight fill appears.")
 mkSlider(ESPP,"Outline Transparency", 0, 1, ESP.OutlineTransparency, function(x) ESP.OutlineTransparency=x end,nil, "Adjusts how visible the ESP outline is.")
+mkSlider(ESPP,"Color Intensity", 0.4, 1.6, ESP.ColorIntensity, function(x) ESP.ColorIntensity=x end,nil, "Boosts or softens highlight brightness for every player type.")
+mkCycle(ESPP, "Enemy Highlight", ESPColorPresets, ESP.EnemyColor, function(col) ESP.EnemyColor = col end, "Choose the glow color used when enemies are highlighted.")
+mkCycle(ESPP, "Friendly Highlight", ESPColorPresets, ESP.FriendColor, function(col) ESP.FriendColor = col end, "Select the highlight tint for teammates and allies.")
+mkCycle(ESPP, "Neutral Highlight", ESPColorPresets, ESP.NeutralColor, function(col) ESP.NeutralColor = col end, "Pick the tone shown for players with no team alignment.")
 
 -- Visuals
 local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Shows or hides the custom crosshair overlay.")
