@@ -12,6 +12,7 @@ local Lighting          = game:GetService("Lighting")
 local Players           = game:GetService("Players")
 local GuiService        = game:GetService("GuiService")
 local HttpService       = game:GetService("HttpService")
+local TextService       = game:GetService("TextService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
@@ -353,7 +354,7 @@ local function newPage(name)
 
     local grid = Instance.new("UIGridLayout", p)
     grid.CellPadding = UDim2.new(0, 12, 0, 12)
-    grid.CellSize = UDim2.new(0.5, -6, 0, 56)
+    grid.CellSize = UDim2.new(0.5, -6, 0, 64)
     grid.SortOrder = Enum.SortOrder.LayoutOrder
     grid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
@@ -404,39 +405,147 @@ local function tabButton(text, page)
     return b
 end
 
+-- floating tooltip bubble for control descriptions
+local Tooltip = Instance.new("Frame", App)
+Tooltip.Name = "ControlTooltip"
+Tooltip.Visible = false
+Tooltip.Active = false
+Tooltip.ZIndex = 80
+Tooltip.BackgroundColor3 = T.Panel
+Tooltip.BackgroundTransparency = 0.05
+Tooltip.Size = UDim2.fromOffset(220, 64)
+Tooltip.ClipsDescendants = false
+corner(Tooltip, 10)
+stroke(Tooltip, T.Stroke, 1, 0.2)
+
+local tooltipPad = Instance.new("UIPadding", Tooltip)
+tooltipPad.PaddingTop = UDim.new(0, 8)
+tooltipPad.PaddingBottom = UDim.new(0, 8)
+tooltipPad.PaddingLeft = UDim.new(0, 12)
+tooltipPad.PaddingRight = UDim.new(0, 12)
+
+local tooltipText = Instance.new("TextLabel", Tooltip)
+tooltipText.BackgroundTransparency = 1
+tooltipText.Size = UDim2.new(1, 0, 1, 0)
+tooltipText.Font = Enum.Font.Gotham
+tooltipText.TextSize = 13
+tooltipText.TextColor3 = T.Text
+tooltipText.TextWrapped = true
+tooltipText.TextXAlignment = Enum.TextXAlignment.Left
+tooltipText.TextYAlignment = Enum.TextYAlignment.Top
+
+local tooltipOwner = nil
+local tooltipBounds = Vector2.new(Tooltip.Size.X.Offset, Tooltip.Size.Y.Offset)
+
+local function updateTooltipPosition(x, y)
+    local vp = Camera.ViewportSize
+    local width = tooltipBounds.X
+    local height = tooltipBounds.Y
+    local px = math.clamp(x + 16, 8, vp.X - width - 8)
+    local py = math.clamp(y + 20, 8, vp.Y - height - 8)
+    Tooltip.Position = UDim2.fromOffset(px, py)
+end
+
+local function openTooltip(owner, text)
+    tooltipOwner = owner
+    tooltipText.Text = text
+    local bounds = TextService:GetTextSize(text, tooltipText.TextSize, tooltipText.Font, Vector2.new(280, 800))
+    local width = math.clamp(bounds.X + 24, 160, 320)
+    local height = math.clamp(bounds.Y + 16, 32, 220)
+    tooltipBounds = Vector2.new(width, height)
+    Tooltip.Size = UDim2.fromOffset(width, height)
+    Tooltip.Visible = true
+    local mouse = UserInputService:GetMouseLocation()
+    updateTooltipPosition(mouse.X, mouse.Y)
+end
+
+local function closeTooltip(owner)
+    if tooltipOwner ~= owner then return end
+    tooltipOwner = nil
+    Tooltip.Visible = false
+end
+
+local function trackTooltip(owner, x, y)
+    if tooltipOwner ~= owner then return end
+    updateTooltipPosition(x, y)
+end
+
+Root:GetPropertyChangedSignal("Visible"):Connect(function()
+    if not Root.Visible then
+        tooltipOwner = nil
+        Tooltip.Visible = false
+    end
+end)
+
 -- Controls factory (compact, reused)
 local function rowBase(parent, name, desc)
     local infoText = trim(desc or "")
     local hasDesc = infoText ~= ""
-    local r=Instance.new("Frame", parent); r.BackgroundColor3=T.Card; r.Size=UDim2.new(0.5,-6,0, hasDesc and 74 or 56)
-    corner(r,10); stroke(r,T.Stroke,1,0.25)
+    local r = Instance.new("Frame", parent)
+    r.BackgroundColor3 = T.Card
+    r.Size = UDim2.new(0.5, -6, 0, 64)
+    corner(r, 10)
+    stroke(r, T.Stroke, 1, 0.25)
 
-    local l=Instance.new("TextLabel", r)
-    l.BackgroundTransparency=1
-    l.Position=UDim2.new(0,18,0, hasDesc and 6 or 0)
-    l.Size=UDim2.new(1,-176,0, hasDesc and 26 or 56)
-    l.Text=name
-    l.TextColor3=T.Text
-    l.Font=Enum.Font.Gotham
-    l.TextSize=14
-    l.TextXAlignment=Enum.TextXAlignment.Left
-    l.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
+    local labelOffset = hasDesc and 54 or 18
+    local labelWidth = hasDesc and -210 or -176
+
+    local l = Instance.new("TextLabel", r)
+    l.BackgroundTransparency = 1
+    l.Position = UDim2.new(0, labelOffset, 0, 0)
+    l.Size = UDim2.new(1, labelWidth, 1, 0)
+    l.Text = name
+    l.TextColor3 = T.Text
+    l.Font = Enum.Font.Gotham
+    l.TextSize = 14
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.TextWrapped = true
 
     if hasDesc then
-        local sub = Instance.new("TextLabel", r)
-        sub.BackgroundTransparency = 1
-        sub.Position = UDim2.new(0,18,0,34)
-        sub.Size = UDim2.new(1,-176,0,26)
-        sub.Font = Enum.Font.Gotham
-        sub.Text = infoText
-        sub.TextColor3 = T.Subtle
-        sub.TextSize = 12
-        sub.TextXAlignment = Enum.TextXAlignment.Left
-        sub.TextYAlignment = Enum.TextYAlignment.Top
-        sub.TextWrapped = true
+        local infoButton = Instance.new("TextButton", r)
+        infoButton.Name = "Info"
+        infoButton.Size = UDim2.fromOffset(26, 26)
+        infoButton.Position = UDim2.new(0, 18, 0.5, -13)
+        infoButton.BackgroundColor3 = T.Ink
+        infoButton.AutoButtonColor = false
+        infoButton.Text = "?"
+        infoButton.Font = Enum.Font.GothamBold
+        infoButton.TextSize = 16
+        infoButton.TextColor3 = T.Subtle
+        infoButton.ZIndex = 3
+        corner(infoButton, 13)
+        stroke(infoButton, T.Stroke, 1, 0.45)
+
+        local baseColor = infoButton.BackgroundColor3
+        local baseText = infoButton.TextColor3
+
+        infoButton.MouseEnter:Connect(function()
+            TweenService:Create(infoButton, TweenInfo.new(0.12), {
+                BackgroundColor3 = T.Accent,
+                TextColor3 = T.Text,
+            }):Play()
+            openTooltip(infoButton, infoText)
+        end)
+
+        infoButton.MouseLeave:Connect(function()
+            TweenService:Create(infoButton, TweenInfo.new(0.12), {
+                BackgroundColor3 = baseColor,
+                TextColor3 = baseText,
+            }):Play()
+            closeTooltip(infoButton)
+        end)
+
+        infoButton.MouseButton1Click:Connect(function()
+            openTooltip(infoButton, infoText)
+        end)
+
+        infoButton.MouseMoved:Connect(function(x, y)
+            trackTooltip(infoButton, x, y)
+        end)
     end
 
-    return r,l
+    return r, l
 end
 
 local function mkToggle(parent, name, default, cb, desc)
@@ -456,15 +565,11 @@ local function mkToggle(parent, name, default, cb, desc)
 end
 
 local function mkSlider(parent, name, min, max, default, cb, unit, desc)
-    local r,l=rowBase(parent,name,desc)
-    local hasDesc = trim(desc or "") ~= ""
-    local topOffset = hasDesc and 6 or 0
-    local vHeight = hasDesc and 26 or 56
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,0,vHeight); v.Position=UDim2.new(1,-128,0,topOffset)
+    local r,_=rowBase(parent,name,desc)
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,1,0); v.Position=UDim2.new(1,-128,0,0)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    v.TextYAlignment = hasDesc and Enum.TextYAlignment.Top or Enum.TextYAlignment.Center
-    local barY = hasDesc and 50 or 38
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-160,0,6); bar.Position=UDim2.new(0,18,0,barY); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    v.TextYAlignment = Enum.TextYAlignment.Center
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-160,0,6); bar.Position=UDim2.new(0,18,0.5,-3); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
