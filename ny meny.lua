@@ -273,34 +273,40 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 local function attachTooltip(object, text)
-    local localToken = 0
-    local hovering = false
+    local function resolveTip()
+        local tip = typeof(text) == "function" and text() or text
+        tip = trim(tip)
+        return tip
+    end
+
+    local function beginHover()
+        local tip = resolveTip()
+        if tip ~= "" then
+            showTooltip(tip)
+        else
+            hideTooltip()
+        end
+    end
+
     local function endHover()
-        hovering = false
-        localToken += 1
         hideTooltip()
     end
-    object.MouseEnter:Connect(function()
-        hovering = true
-        localToken += 1
-        local thisToken = localToken
-        task.delay(1, function()
-            if hovering and thisToken == localToken then
-                local tip = typeof(text) == "function" and text() or text
-                tip = trim(tip)
-                if tip ~= "" then
-                    showTooltip(tip)
-                end
-            end
-        end)
-    end)
+
+    object.MouseEnter:Connect(beginHover)
     object.MouseLeave:Connect(endHover)
     object.MouseButton1Down:Connect(endHover)
-    object.MouseButton1Up:Connect(endHover)
+    object.MouseButton1Up:Connect(beginHover)
+
     if object:IsA("GuiObject") then
         object.MouseMoved:Connect(function()
             if Tooltip.Visible then
-                positionTooltip()
+                local tip = resolveTip()
+                if tip ~= "" then
+                    TooltipLabel.Text = tip
+                    positionTooltip()
+                else
+                    hideTooltip()
+                end
             end
         end)
     end
@@ -606,43 +612,43 @@ tabButton("Config", ConfP)
 -- make Aimbot page visible by default
 AimbotP.Visible = true
 
-mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Turns the aimbot feature on or off.")
-mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only activates the aimbot while the right mouse button is held down.")
-mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Skips targets that are blocked by walls or other geometry.")
-mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Displays the aiming field-of-view circle on your screen.")
-mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Sets the radius of the aim assist field-of-view circle in pixels.")
-mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Controls how strongly the camera lerps toward the target (lower means snappier).")
-mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Limits aiming to targets within this distance.")
+mkToggle(AimbotP,"Enable Aimbot", AA.Enabled, function(v) AA.Enabled=v end, "Turn the assisted aiming on or off so the script can snap toward targets for you.")
+mkToggle(AimbotP,"Require Right Mouse (hold)", AA.RequireRMB, function(v) AA.RequireRMB=v end, "Only let the aimbot run while you are holding the right mouse button.")
+mkToggle(AimbotP,"Wall Check (line of sight)", AA.WallCheck, function(v) AA.WallCheck=v end, "Ignore players that are hidden behind walls or other cover.")
+mkToggle(AimbotP,"Show FOV", AA.ShowFOV, function(v) AA.ShowFOV=v end, "Draw the aiming circle so you can see the catch radius on screen.")
+mkSlider(AimbotP,"FOV Radius", 40, 500, AA.FOVRadiusPx, function(x) AA.FOVRadiusPx=math.floor(x) end,"px", "Choose how large the aimbot's capture circle is, measured in pixels.")
+mkSlider(AimbotP,"Strength (lower=stronger)", 0.05, 0.40, AA.Strength, function(x) AA.Strength=x end,nil, "Decide how aggressively the camera pulls toward the enemy (lower values grip harder).")
+mkSlider(AimbotP,"Max Distance", 50, 1000, AA.MaxDistance, function(x) AA.MaxDistance=math.floor(x) end,"studs", "Stop the aimbot from locking onto players beyond this distance.")
 
-local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
-local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
-local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Sets how much vertical recoil is counteracted.")
-local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Sets how much horizontal recoil is counteracted.")
-local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
+local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Toggle the recoil reducer that keeps your aim steady while firing.")
+local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Only smooth the recoil while you are holding the left mouse button to shoot.")
+local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Choose how much upward kick is cancelled out.")
+local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Choose how much sideways sway is cancelled out.")
+local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Blend the recoil control to feel snappier or more natural.")
 local function refreshRCUI()
     local on=RC.Enabled
     setInteractable(rcShoot.Row,on); setInteractable(rcV.Row,on); setInteractable(rcH.Row,on); setInteractable(rcS.Row,on)
 end
 RunService.RenderStepped:Connect(refreshRCUI)
 
-mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turns highlight ESP visuals on or off.")
-mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Only shows ESP highlights on enemy players.")
-mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Restricts ESP to players within the max distance slider.")
-mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Sets the farthest distance that ESP highlights will appear.")
+mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turn the ESP outlines on or off to highlight players through the map.")
+mkToggle(ESPP,"Enemies Only", ESP.EnemiesOnly, function(v) ESP.EnemiesOnly=v end, "Only glow enemy players so teammates stay clean.")
+mkToggle(ESPP,"Use Distance Limit", ESP.UseDistance, function(v) ESP.UseDistance=v end, "Hide ESP markers for players farther away than the distance slider allows.")
+mkSlider(ESPP,"Max Distance", 50, 2000, ESP.MaxDistance, function(x) ESP.MaxDistance=math.floor(x) end,"studs", "Pick the maximum range in studs where ESP highlights are drawn.")
 
-local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Shows or hides the custom crosshair overlay.")
-mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Sets how transparent the crosshair appears.")
-mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Controls the overall length of the crosshair lines.")
-mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Adjusts the gap between the crosshair arms and the center.")
-mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Changes how thick each crosshair arm is.")
-local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Adds a dot to the middle of the crosshair.")
-local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Sets the size of the center dot.")
-local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Controls the transparency of the center dot.")
+local crossT = mkToggle(VisualP,"Crosshair", Cross.Enabled, function(v) Cross.Enabled=v; updCross() end, "Show or hide the custom crosshair overlay on your screen.")
+mkSlider(VisualP,"Opacity", 0.1,1, Cross.Opacity, function(x) Cross.Opacity=x; updCross() end,nil, "Set how transparent the crosshair lines should be.")
+mkSlider(VisualP,"Size", 4,24, Cross.Size, function(x) Cross.Size=math.floor(x); updCross() end,nil, "Control how long each crosshair arm extends from the center.")
+mkSlider(VisualP,"Gap", 2,20, Cross.Gap, function(x) Cross.Gap=math.floor(x); updCross() end,nil, "Adjust how far the crosshair arms sit away from the center point.")
+mkSlider(VisualP,"Thickness", 1,6, Cross.Thickness, function(x) Cross.Thickness=math.floor(x); updCross() end,nil, "Choose how thick each crosshair arm should look.")
+local dotT = mkToggle(VisualP,"Center Dot", Cross.CenterDot, function(v) Cross.CenterDot=v; updCross() end, "Add or remove a dot in the middle of the crosshair.")
+local dotS = mkSlider(VisualP,"Dot Size", 1,6, Cross.DotSize, function(x) Cross.DotSize=math.floor(x); updCross() end,nil, "Pick the size of the center dot.")
+local dotO = mkSlider(VisualP,"Dot Opacity", 0.1,1, Cross.DotOpacity, function(x) Cross.DotOpacity=x; updCross() end,nil, "Pick how visible the center dot should be.")
 RunService.RenderStepped:Connect(function()
     local on=Cross.CenterDot; setInteractable(dotS.Row,on); setInteractable(dotO.Row,on)
 end)
 
-mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Reminder that you can press K to hide or show the panel.")
+mkToggle(MiscP,"Press K to toggle UI", true, function() end, "Remember: pressing K will hide or show the whole panel instantly.")
 
 -- Kill Menu logic
 local function killMenu()
@@ -672,7 +678,7 @@ UserInputService.InputBegan:Connect(function(i)
 end)
 
 -- Button to kill menu
-mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, true, "Immediately closes the menu and disables all features.")
+mkButton(MiscP, "Kill Menu (remove UI)", function() killMenu() end, true, "Close the UI right away and shut off every feature if you need a panic button.")
 
 -- Config / profiles
 local BASE="ProfitCruiser"; local PROF=BASE.."/Profiles"; local MODE="memory"; local MEM=rawget(_G,"PC_ProfileStore") or {}; _G.PC_ProfileStore=MEM
@@ -684,8 +690,8 @@ local function apply(s) if not s then return end deep(RC,s.RC or {}); deep(AA,s.
 local function save(name) local ok,data=pcall(function() return HttpService:JSONEncode(gather()) end); if not ok then return false,"encode" end if MODE=="filesystem" then local p=PROF.."/"..name..".json"; local s,err=pcall(function() writefile(p,data) end); return s,(s and nil or tostring(err)) else MEM[name]=data; return true end end
 local function load(name) if MODE=="filesystem" then local p=PROF.."/"..name..".json"; if not (isfile and isfile(p)) then return false,"missing" end local ok,raw=pcall(function() return readfile(p) end); if not ok then return false,"read" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true else local raw=MEM[name]; if not raw then return false,"missing" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true end end
 
-local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Saves your current settings into the Default profile slot.")
-local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Loads the Default profile back into all features.")
+local saveBtn = mkToggle(ConfP,"Save Default (click)", false, function(v,row) if v then local ok,err=save("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Saved Default ✅" or ("Save failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Save Default (click)" end) end end, "Save your current configuration into the Default profile slot for later.")
+local loadBtn = mkToggle(ConfP,"Load Default (click)", false, function(v,row) if v then local ok,err=load("Default"); (row:FindFirstChildWhichIsA("TextLabel")).Text = ok and "Loaded Default ✅" or ("Load failed: "..tostring(err)); task.delay(0.4,function() (row:FindFirstChildWhichIsA("TextLabel")).Text="Load Default (click)" end) end end, "Load the values you stored in the Default profile back into every feature.")
 
 -- Show panel when gate closes (only if allowed by flow)
 Gate:GetPropertyChangedSignal("Enabled"):Connect(function()
