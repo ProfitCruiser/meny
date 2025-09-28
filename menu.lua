@@ -566,11 +566,21 @@ local function mkToggle(parent, name, default, cb, desc)
 end
 
 local function mkSlider(parent, name, min, max, default, cb, unit, desc)
-    local r,_=rowBase(parent,name,desc)
-    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,120,1,0); v.Position=UDim2.new(1,-128,0,0)
+    local r,l=rowBase(parent,name,desc)
+    local hasDesc = trim(desc or "") ~= ""
+    local sliderLeft = hasDesc and 54 or 18
+    local valueWidth = 110
+    local rightPadding = 28
+
+    l.Position = UDim2.new(0, sliderLeft, 0, 6)
+    l.Size = UDim2.new(1, -(sliderLeft + valueWidth + rightPadding), 0, 26)
+    l.TextYAlignment = Enum.TextYAlignment.Top
+
+    local v=Instance.new("TextLabel", r); v.BackgroundTransparency=1; v.Size=UDim2.new(0,valueWidth,0,24); v.Position=UDim2.new(1,-valueWidth-18,0,6)
     v.Text=""; v.TextColor3=T.Subtle; v.Font=Enum.Font.Gotham; v.TextSize=14; v.TextXAlignment=Enum.TextXAlignment.Right
-    v.TextYAlignment = Enum.TextYAlignment.Center
-    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1,-160,0,6); bar.Position=UDim2.new(0,18,0.5,-3); bar.BackgroundColor3=T.Ink; corner(bar,4)
+    v.TextYAlignment = Enum.TextYAlignment.Top
+
+    local bar=Instance.new("Frame", r); bar.Size=UDim2.new(1, -(sliderLeft + valueWidth + rightPadding), 0, 6); bar.Position=UDim2.new(0,sliderLeft,0,38); bar.BackgroundColor3=T.Ink; corner(bar,4)
     local fill=Instance.new("Frame", bar); fill.Size=UDim2.new(0,0,1,0); fill.BackgroundColor3=T.Neon; corner(fill,4)
 
     local val=math.clamp(default or min, min, max)
