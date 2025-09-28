@@ -426,9 +426,6 @@ local PerformanceSettings = {
     LowImpact = false,
 }
 
-local failSpikeTime = 0
-local failSafeTriggered = false
-
 local UISoundLibrary = {
     toggleOn = "rbxassetid://9118823105",
     toggleOff = "rbxassetid://9118823476",
@@ -875,34 +872,12 @@ local Top = Instance.new("Frame", Root)
 Top.Size=UDim2.new(1, -16, 0, 46); Top.Position=UDim2.new(0,8,0,8); Top.BackgroundColor3=T.Panel; corner(Top,12); stroke(Top,T.Stroke,1,0.45); pad(Top,10)
 
 local TitleLbl = Instance.new("TextLabel", Top)
-TitleLbl.Size=UDim2.new(0.6,0,1,0); TitleLbl.BackgroundTransparency=1; TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
+TitleLbl.Size=UDim2.new(1,0,1,0); TitleLbl.BackgroundTransparency=1; TitleLbl.TextXAlignment=Enum.TextXAlignment.Left
 TitleLbl.Text="ProfitCruiser — Aurora Panel"; TitleLbl.Font=Enum.Font.GothamBold; TitleLbl.TextSize=18; TitleLbl.TextColor3=T.Text
-
-local PerfFrame = Instance.new("Frame", Root)
-PerfFrame.Name = "PerfGraph"
-PerfFrame.Size = UDim2.fromOffset(160, 58)
-PerfFrame.Position = UDim2.new(1, -180, 0, 14)
-PerfFrame.BackgroundTransparency = 0.05
-corner(PerfFrame, 10)
-local perfStroke = stroke(PerfFrame, T.Stroke, 1, 0.25)
-bindTheme(PerfFrame, "BackgroundColor3", "Panel")
-bindTheme(perfStroke, "Color", "Stroke")
-
-local PerfLabel = Instance.new("TextLabel", PerfFrame)
-PerfLabel.BackgroundTransparency = 1
-PerfLabel.Size = UDim2.new(1, 0, 0, 18)
-PerfLabel.Position = UDim2.new(0, 6, 0, 2)
-PerfLabel.Font = Enum.Font.GothamMedium
-PerfLabel.TextSize = 13
-PerfLabel.TextXAlignment = Enum.TextXAlignment.Left
-PerfLabel.TextColor3 = T.Text
-PerfLabel.Text = "FPS: --"
-bindTheme(PerfLabel, "TextColor3", "Text")
-FontRegistry[PerfLabel] = 13
 
 StatusBanner = Instance.new("TextLabel", Root)
 StatusBanner.Name = "StatusBanner"
-StatusBanner.Size = UDim2.new(1, -196, 0, 30)
+StatusBanner.Size = UDim2.new(1, -16, 0, 30)
 StatusBanner.Position = UDim2.new(0, 8, 0, 58)
 StatusBanner.BackgroundColor3 = T.Panel
 StatusBanner.BackgroundTransparency = 0.05
@@ -921,34 +896,6 @@ bindTheme(bannerStroke, "Color", "Stroke")
 FontRegistry[StatusBanner] = 13
 refreshStatusBanner()
 
-local Graph = Instance.new("Frame", PerfFrame)
-Graph.BackgroundTransparency = 1
-Graph.Size = UDim2.new(1, -12, 1, -26)
-Graph.Position = UDim2.new(0, 6, 0, 22)
-Graph.ClipsDescendants = true
-
-local graphLayout = Instance.new("UIListLayout", Graph)
-graphLayout.FillDirection = Enum.FillDirection.Horizontal
-graphLayout.SortOrder = Enum.SortOrder.LayoutOrder
-graphLayout.Padding = UDim.new(0, 1)
-
-local fpsBars = {}
-local fpsHistory = {}
-local fpsPointer = 1
-local sampleCount = 60
-local perfAccumulator = 0
-for i = 1, sampleCount do
-    fpsHistory[i] = 0
-    local bar = Instance.new("Frame", Graph)
-    bar.BackgroundColor3 = T.Neon
-    bar.BorderSizePixel = 0
-    bar.AnchorPoint = Vector2.new(0, 1)
-    bar.Position = UDim2.new(0, 0, 1, 0)
-    bar.Size = UDim2.new(0, 2, 0.2, 0)
-    bindTheme(bar, "BackgroundColor3", "Neon")
-    fpsBars[i] = bar
-end
-
 -- drag
 local draggingEnabled = true
 local dragging,rel=false,Vector2.zero
@@ -962,58 +909,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-RunService.RenderStepped:Connect(function(dt)
-    if not PerfLabel then return end
 
-    if dt > 0.06 then
-        failSpikeTime += dt
-    else
-        failSpikeTime = math.max(0, failSpikeTime - dt * 0.5)
-    end
-
-    if not failSafeTriggered and failSpikeTime >= 2.5 then
-        failSafeTriggered = true
-        PerformanceSettings.LowImpact = true
-        if lowImpactToggle and lowImpactToggle.Set then
-            suppressSoundStack += 1
-            lowImpactToggle.Set(true)
-            suppressSoundStack = math.max(0, suppressSoundStack - 1)
-        end
-        ESP.Enabled = false
-        Cross.Enabled = false
-        updCross()
-        setBannerState("failsafe", "Failsafe triggered", "Failsafe triggered — visuals paused", "Warn", 6)
-    elseif failSafeTriggered and failSpikeTime <= 0.4 then
-        failSafeTriggered = false
-        setBannerState("failsafe")
-    end
-
-    if PerformanceSettings.LowImpact then
-        perfAccumulator += dt
-        if perfAccumulator < 0.2 then
-            return
-        end
-        perfAccumulator = 0
-    else
-        perfAccumulator = 0
-    end
-
-    local fps = math.clamp(1 / math.max(dt, 1e-4), 0, 240)
-    PerfLabel.Text = string.format("FPS: %d", math.floor(fps + 0.5))
-    fpsHistory[fpsPointer] = dt
-    fpsPointer = (fpsPointer % sampleCount) + 1
-    for i, bar in ipairs(fpsBars) do
-        local index = (fpsPointer + i - 2) % sampleCount + 1
-        local sample = fpsHistory[index]
-        local normalized = math.clamp(sample / 0.05, 0, 1)
-        bar.Size = UDim2.new(0, 2, normalized, 0)
-        if sample > 0.04 then
-            bar.BackgroundColor3 = T.Warn
-        else
-            bar.BackgroundColor3 = T.Neon
-        end
-    end
-end)
 
 -- sidebar
 local Side = Instance.new("Frame", Root)
@@ -2948,8 +2844,6 @@ local function killMenu()
     if AA_GUI then AA_GUI.Enabled = false end
     if CrossGui then CrossGui.Enabled = false end
     clearBannerStates()
-    failSafeTriggered = false
-    failSpikeTime = 0
     PerformanceSettings.LowImpact = false
     if lowImpactToggle and lowImpactToggle.Set then
         suppressSoundStack += 1
