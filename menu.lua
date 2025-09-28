@@ -1,7 +1,7 @@
 --====================================================--
 -- AURORA PANEL — ProfitCruiser (fixed key→panel flow)
 -- Full redesign: Compact 2-col layout + sections + gating
--- Aimbot, Recoil v2, ESP(Highlight), Crosshair, Profiles
+-- Aimbot, ESP (Highlight), Crosshair, Profiles
 --====================================================--
 
 --// Services
@@ -718,20 +718,6 @@ local function mkCycle(parent, name, options, default, cb, desc)
 end
 
 --==================== FEATURE STATE ====================--
-local RC={ Enabled=false, OnlyWhileShooting=true, Strength=0.75, Smooth=0.4 }
-local function normalizeRCConfig()
-    if RC.VerticalStrength ~= nil or RC.HorizontalStrength ~= nil then
-        if RC.Strength == nil then
-            local v = tonumber(RC.VerticalStrength) or 0
-            local h = tonumber(RC.HorizontalStrength) or 0
-            RC.Strength = math.clamp((math.abs(v) + math.abs(h)) * 0.45, 0, 1.6)
-        end
-        RC.VerticalStrength = nil
-        RC.HorizontalStrength = nil
-    end
-    RC.Smooth = RC.Smooth or 0.4
-end
-normalizeRCConfig()
 local AA={
     Enabled=false,
     Strength=0.15,
@@ -911,40 +897,6 @@ local function getTarget()
     return best
 end
 
-local rcBaseline = Camera.CFrame
-local function resetRCBaseline()
-    rcBaseline = Camera.CFrame
-end
-
-local function applyRC(dt)
-    if not RC.Enabled then
-        resetRCBaseline()
-        return
-    end
-
-    local shooting = not RC.OnlyWhileShooting or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-    if not shooting then
-        resetRCBaseline()
-        return
-    end
-
-    local current = Camera.CFrame
-    local diff = rcBaseline:ToObjectSpace(current)
-    local pitch, yaw = diff:ToOrientation()
-    if math.abs(pitch) < 1e-4 and math.abs(yaw) < 1e-4 then
-        rcBaseline = rcBaseline:Lerp(current, math.clamp(dt * 12, 0, 1))
-        return
-    end
-
-    local strength = math.clamp(RC.Strength or 0, 0, 2)
-    local correction = CFrame.Angles(-pitch * strength, -yaw * strength * 0.6, 0)
-    local desired = current * correction
-    local smooth = math.clamp(RC.Smooth or 0.3, 0.05, 1)
-    Camera.CFrame = current:Lerp(desired, smooth)
-
-    rcBaseline = rcBaseline:Lerp(Camera.CFrame, math.clamp(dt * 10, 0, 1))
-end
-
 local stickyTarget, stickyTimer = nil, 0
 local rng = Random.new()
 local lastTargetPart, reactionTimer = nil, 0
@@ -1065,7 +1017,6 @@ RunService.RenderStepped:Connect(function(dt)
         lastTargetPart = nil
         reactionTimer = 0
     end
-    applyRC(dt)
 end)
 
 -- ESP (Highlight)
@@ -1180,21 +1131,18 @@ local closeBoost = mkSlider(AimbotP,"Close-range Boost", 0, 0.6, AA.CloseRangeBo
 local predictionSlider = mkSlider(AimbotP,"Lead Prediction", 0, 0.75, AA.Prediction, function(x) AA.Prediction=x end,"s", "Predicts where moving targets will be after this many seconds.")
 local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOffset, function(x) AA.VerticalOffset=x end,"studs", "Shifts the aim point up or down relative to the target.")
 
--- Recoil sub-section
-local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
-local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
-local rcStrength = mkSlider(AimbotP,"RC: Strength", 0, 1.6, RC.Strength, function(x) RC.Strength=x end,nil, "Controls how aggressively recoil is counteracted overall.")
-local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
-local function refreshRCUI()
-    local on=RC.Enabled
-    setInteractable(rcShoot.Row,on); setInteractable(rcStrength.Row,on); setInteractable(rcS.Row,on)
+setInteractable(stickyDuration.Row, AA.StickyAim)
+setInteractable(closeBoost.Row, AA.AdaptiveSmoothing)
+if partCycle and partCycle.Row then setInteractable(partCycle.Row, not AA.DynamicPart) end
+if reactionJitter and reactionJitter.Row then setInteractable(reactionJitter.Row, (AA.ReactionDelay or 0) > 0) end
+if distanceWeight and distanceWeight.Row then setInteractable(distanceWeight.Row, (AA.TargetSort or "Hybrid") == "Hybrid") end
+RunService.RenderStepped:Connect(function()
     setInteractable(stickyDuration.Row, AA.StickyAim)
     setInteractable(closeBoost.Row, AA.AdaptiveSmoothing)
     if partCycle and partCycle.Row then setInteractable(partCycle.Row, not AA.DynamicPart) end
     if reactionJitter and reactionJitter.Row then setInteractable(reactionJitter.Row, (AA.ReactionDelay or 0) > 0) end
     if distanceWeight and distanceWeight.Row then setInteractable(distanceWeight.Row, (AA.TargetSort or "Hybrid") == "Hybrid") end
-end
-RunService.RenderStepped:Connect(refreshRCUI)
+end)
 
 -- ESP
 mkToggle(ESPP,"Enable ESP", ESP.Enabled, function(v) ESP.Enabled=v end, "Turns highlight ESP visuals on or off.")
@@ -1257,6 +1205,92 @@ local centerBtn = mkButton(MiscP, "Center Panel", function()
 end, {buttonText="Center"}, "Recenters the panel on your screen.")
 local scaleSlider = mkSlider(MiscP,"UI Scale", 0.85, 1.25, PanelScale.Scale, function(x) PanelScale.Scale=x end,"x", "Changes the overall size of the menu UI.")
 
+local creditCard = Instance.new("Frame", MiscP)
+creditCard.Name = "CreditsCard"
+creditCard.BackgroundColor3 = T.Card
+creditCard.Size = UDim2.new(0.5, -6, 0, 64)
+corner(creditCard, 10)
+stroke(creditCard, T.Stroke, 1, 0.25)
+
+local creditPadding = Instance.new("UIPadding", creditCard)
+creditPadding.PaddingLeft = UDim.new(0, 18)
+creditPadding.PaddingRight = UDim.new(0, 18)
+creditPadding.PaddingTop = UDim.new(0, 12)
+creditPadding.PaddingBottom = UDim.new(0, 12)
+
+local creditTitle = Instance.new("TextLabel", creditCard)
+creditTitle.BackgroundTransparency = 1
+creditTitle.Position = UDim2.new(0, 0, 0, 0)
+creditTitle.Size = UDim2.new(1, -140, 0, 22)
+creditTitle.Font = Enum.Font.GothamBold
+creditTitle.Text = "Cred til ProfitCruiser"
+creditTitle.TextColor3 = T.Text
+creditTitle.TextSize = 15
+creditTitle.TextXAlignment = Enum.TextXAlignment.Left
+creditTitle.TextYAlignment = Enum.TextYAlignment.Top
+
+local creditSub = Instance.new("TextLabel", creditCard)
+creditSub.BackgroundTransparency = 1
+creditSub.Position = UDim2.new(0, 0, 0, 24)
+creditSub.Size = UDim2.new(1, -140, 1, -28)
+creditSub.Font = Enum.Font.Gotham
+creditSub.Text = "Aurora-panelet er laget av ProfitCruiser crewet."
+creditSub.TextColor3 = T.Subtle
+creditSub.TextSize = 12
+creditSub.TextWrapped = true
+creditSub.TextXAlignment = Enum.TextXAlignment.Left
+creditSub.TextYAlignment = Enum.TextYAlignment.Top
+
+local discordBtn = Instance.new("TextButton", creditCard)
+discordBtn.Name = "DiscordCopy"
+discordBtn.AutoButtonColor = false
+discordBtn.Size = UDim2.new(0, 120, 0, 34)
+discordBtn.Position = UDim2.new(1, -132, 0.5, -17)
+discordBtn.Font = Enum.Font.GothamBold
+discordBtn.Text = "Discord"
+discordBtn.TextColor3 = T.Text
+discordBtn.TextSize = 14
+discordBtn.BackgroundColor3 = T.Accent
+corner(discordBtn, 12)
+stroke(discordBtn, T.Stroke, 1, 0.3)
+
+local discordHover = T.Neon
+local discordBase = discordBtn.BackgroundColor3
+discordBtn.MouseEnter:Connect(function()
+    TweenService:Create(discordBtn, TweenInfo.new(0.12), {BackgroundColor3 = discordHover}):Play()
+end)
+discordBtn.MouseLeave:Connect(function()
+    TweenService:Create(discordBtn, TweenInfo.new(0.12), {BackgroundColor3 = discordBase}):Play()
+end)
+
+local defaultSubText = creditSub.Text
+local copySignal = 0
+discordBtn.MouseButton1Click:Connect(function()
+    copySignal += 1
+    local ticket = copySignal
+    local success = false
+    if setclipboard then
+        success = pcall(function()
+            setclipboard(DISCORD_URL)
+        end)
+        success = success == true
+    end
+    if success then
+        creditSub.Text = "Discord-lenken er kopiert!"
+        creditSub.TextColor3 = T.Good
+    else
+        creditSub.Text = "Kunne ikke kopiere automatisk — bruk lenken: " .. DISCORD_URL
+        creditSub.TextColor3 = T.Warn
+    end
+    TweenService:Create(creditSub, TweenInfo.new(0.12), {TextTransparency = 0}):Play()
+    task.delay(1.6, function()
+        if copySignal == ticket then
+            creditSub.Text = defaultSubText
+            creditSub.TextColor3 = T.Subtle
+        end
+    end)
+end)
+
 -- Kill Menu logic
 local function killMenu()
     -- hide all UIs
@@ -1269,7 +1303,7 @@ local function killMenu()
     TweenService:Create(Blur, TweenInfo.new(0.15), {Size = 0}):Play()
     Blur.Enabled = false
     -- disable features so runtime loops render nothing
-    AA.Enabled=false; RC.Enabled=false; ESP.Enabled=false; Cross.Enabled=false; updCross()
+    AA.Enabled=false; ESP.Enabled=false; Cross.Enabled=false; updCross()
     stickyTarget=nil; stickyTimer=0
     -- clean existing highlights
     for _,pl in ipairs(Players:GetPlayers()) do
@@ -1292,11 +1326,9 @@ local BASE="ProfitCruiser"; local PROF=BASE.."/Profiles"; local MODE="memory"; l
 local function ensure() if makefolder then local ok1=true if not (isfolder and isfolder(BASE)) then ok1=pcall(function() makefolder(BASE) end) end local ok2=true if not (isfolder and isfolder(PROF)) then ok2=pcall(function() makefolder(PROF) end) end return ok1 and ok2 end return false end
 if ensure() and writefile and readfile then MODE="filesystem" end
 local function deep(dst,src) for k,v in pairs(src) do if typeof(v)=="table" and typeof(dst[k])=="table" then deep(dst[k],v) else dst[k]=v end end end
-local function gather() return {RC=RC, AA=AA, ESP=ESP, Cross=Cross} end
+local function gather() return {AA=AA, ESP=ESP, Cross=Cross} end
 local function apply(s)
     if not s then return end
-    deep(RC,s.RC or {})
-    normalizeRCConfig()
     deep(AA,s.AA or {})
     deep(ESP,s.ESP or {})
     deep(Cross,s.Cross or {})
