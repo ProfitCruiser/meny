@@ -287,7 +287,7 @@ local function attachTooltip(object, text)
         hovering = true
         localToken += 1
         local thisToken = localToken
-        task.delay(1, function()
+        task.delay(0.25, function()
             if hovering and thisToken == localToken then
                 local tip = typeof(text) == "function" and text() or text
                 tip = trim(tip)
