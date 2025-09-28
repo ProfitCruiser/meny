@@ -421,6 +421,13 @@ end
 local SoundSettings = { Enabled = true }
 local suppressSoundStack = 0
 
+local PerformanceSettings = {
+    LowImpact = false,
+}
+
+local failSpikeTime = 0
+local failSafeTriggered = false
+
 local UISoundLibrary = {
     toggleOn = "rbxassetid://9118823105",
     toggleOff = "rbxassetid://9118823476",
@@ -2005,13 +2012,6 @@ local Keybinds = {
 local KeybindControls = {}
 local activeRebind = nil
 local activeRebindConn = nil
-
-local PerformanceSettings = {
-    LowImpact = false,
-}
-
-local failSpikeTime = 0
-local failSafeTriggered = false
 
 local function stopActiveRebind()
     if activeRebindConn then
