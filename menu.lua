@@ -718,7 +718,20 @@ local function mkCycle(parent, name, options, default, cb, desc)
 end
 
 --==================== FEATURE STATE ====================--
-local RC={ Enabled=false, OnlyWhileShooting=true, VerticalStrength=0.6, HorizontalStrength=0.0, Smooth=0.35 }
+local RC={ Enabled=false, OnlyWhileShooting=true, Strength=0.75, Smooth=0.4 }
+local function normalizeRCConfig()
+    if RC.VerticalStrength ~= nil or RC.HorizontalStrength ~= nil then
+        if RC.Strength == nil then
+            local v = tonumber(RC.VerticalStrength) or 0
+            local h = tonumber(RC.HorizontalStrength) or 0
+            RC.Strength = math.clamp((math.abs(v) + math.abs(h)) * 0.45, 0, 1.6)
+        end
+        RC.VerticalStrength = nil
+        RC.HorizontalStrength = nil
+    end
+    RC.Smooth = RC.Smooth or 0.4
+end
+normalizeRCConfig()
 local AA={
     Enabled=false,
     Strength=0.15,
@@ -898,14 +911,38 @@ local function getTarget()
     return best
 end
 
--- Recoil comp
+local rcBaseline = Camera.CFrame
+local function resetRCBaseline()
+    rcBaseline = Camera.CFrame
+end
+
 local function applyRC(dt)
-    if not RC.Enabled then return end
-    if RC.OnlyWhileShooting and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then return end
-    local v = RC.VerticalStrength * 12
-    local h = RC.HorizontalStrength * 12
-    local des = Camera.CFrame * CFrame.Angles(-math.rad(v*dt), -math.rad(h*dt), 0)
-    Camera.CFrame = Camera.CFrame:Lerp(des, math.clamp(RC.Smooth,0.05,1))
+    if not RC.Enabled then
+        resetRCBaseline()
+        return
+    end
+
+    local shooting = not RC.OnlyWhileShooting or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    if not shooting then
+        resetRCBaseline()
+        return
+    end
+
+    local current = Camera.CFrame
+    local diff = rcBaseline:ToObjectSpace(current)
+    local pitch, yaw = diff:ToOrientation()
+    if math.abs(pitch) < 1e-4 and math.abs(yaw) < 1e-4 then
+        rcBaseline = rcBaseline:Lerp(current, math.clamp(dt * 12, 0, 1))
+        return
+    end
+
+    local strength = math.clamp(RC.Strength or 0, 0, 2)
+    local correction = CFrame.Angles(-pitch * strength, -yaw * strength * 0.6, 0)
+    local desired = current * correction
+    local smooth = math.clamp(RC.Smooth or 0.3, 0.05, 1)
+    Camera.CFrame = current:Lerp(desired, smooth)
+
+    rcBaseline = rcBaseline:Lerp(Camera.CFrame, math.clamp(dt * 10, 0, 1))
 end
 
 local stickyTarget, stickyTimer = nil, 0
@@ -1146,12 +1183,11 @@ local heightOffset = mkSlider(AimbotP,"Aim Height Offset", -2, 2, AA.VerticalOff
 -- Recoil sub-section
 local rcEn = mkToggle(AimbotP,"Recoil Control", RC.Enabled, function(v,row) RC.Enabled=v end, "Enables recoil compensation while firing weapons.")
 local rcShoot = mkToggle(AimbotP,"RC: Only while shooting", RC.OnlyWhileShooting, function(v) RC.OnlyWhileShooting=v end, "Restricts recoil control to times when you are actively shooting.")
-local rcV = mkSlider(AimbotP,"RC: Vertical Strength", 0, 3, RC.VerticalStrength, function(x) RC.VerticalStrength=x end,nil, "Sets how much vertical recoil is counteracted.")
-local rcH = mkSlider(AimbotP,"RC: Horizontal Strength", 0, 3, RC.HorizontalStrength, function(x) RC.HorizontalStrength=x end,nil, "Sets how much horizontal recoil is counteracted.")
+local rcStrength = mkSlider(AimbotP,"RC: Strength", 0, 1.6, RC.Strength, function(x) RC.Strength=x end,nil, "Controls how aggressively recoil is counteracted overall.")
 local rcS = mkSlider(AimbotP,"RC: Smooth", 0.05, 1, RC.Smooth, function(x) RC.Smooth=x end,nil, "Adjusts how smoothly recoil compensation is applied.")
 local function refreshRCUI()
     local on=RC.Enabled
-    setInteractable(rcShoot.Row,on); setInteractable(rcV.Row,on); setInteractable(rcH.Row,on); setInteractable(rcS.Row,on)
+    setInteractable(rcShoot.Row,on); setInteractable(rcStrength.Row,on); setInteractable(rcS.Row,on)
     setInteractable(stickyDuration.Row, AA.StickyAim)
     setInteractable(closeBoost.Row, AA.AdaptiveSmoothing)
     if partCycle and partCycle.Row then setInteractable(partCycle.Row, not AA.DynamicPart) end
@@ -1257,7 +1293,15 @@ local function ensure() if makefolder then local ok1=true if not (isfolder and i
 if ensure() and writefile and readfile then MODE="filesystem" end
 local function deep(dst,src) for k,v in pairs(src) do if typeof(v)=="table" and typeof(dst[k])=="table" then deep(dst[k],v) else dst[k]=v end end end
 local function gather() return {RC=RC, AA=AA, ESP=ESP, Cross=Cross} end
-local function apply(s) if not s then return end deep(RC,s.RC or {}); deep(AA,s.AA or {}); deep(ESP,s.ESP or {}); deep(Cross,s.Cross or {}); updCross() end
+local function apply(s)
+    if not s then return end
+    deep(RC,s.RC or {})
+    normalizeRCConfig()
+    deep(AA,s.AA or {})
+    deep(ESP,s.ESP or {})
+    deep(Cross,s.Cross or {})
+    updCross()
+end
 local function save(name) local ok,data=pcall(function() return HttpService:JSONEncode(gather()) end); if not ok then return false,"encode" end if MODE=="filesystem" then local p=PROF.."/"..name..".json"; local s,err=pcall(function() writefile(p,data) end); return s,(s and nil or tostring(err)) else MEM[name]=data; return true end end
 local function load(name) if MODE=="filesystem" then local p=PROF.."/"..name..".json"; if not (isfile and isfile(p)) then return false,"missing" end local ok,raw=pcall(function() return readfile(p) end); if not ok then return false,"read" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true else local raw=MEM[name]; if not raw then return false,"missing" end local ok2,tbl=pcall(function() return HttpService:JSONDecode(raw) end); if not ok2 then return false,"decode" end apply(tbl); return true end end
 
