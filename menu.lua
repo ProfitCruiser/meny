@@ -410,7 +410,7 @@ local Tooltip = Instance.new("Frame", App)
 Tooltip.Name = "ControlTooltip"
 Tooltip.Visible = false
 Tooltip.Active = false
-Tooltip.ZIndex = 80
+Tooltip.ZIndex = 200
 Tooltip.BackgroundColor3 = T.Panel
 Tooltip.BackgroundTransparency = 0.05
 Tooltip.Size = UDim2.fromOffset(220, 64)
@@ -433,6 +433,7 @@ tooltipText.TextColor3 = T.Text
 tooltipText.TextWrapped = true
 tooltipText.TextXAlignment = Enum.TextXAlignment.Left
 tooltipText.TextYAlignment = Enum.TextYAlignment.Top
+tooltipText.ZIndex = Tooltip.ZIndex + 1
 
 local tooltipOwner = nil
 local tooltipBounds = Vector2.new(Tooltip.Size.X.Offset, Tooltip.Size.Y.Offset)
