@@ -1234,7 +1234,7 @@ creditSub.BackgroundTransparency = 1
 creditSub.Position = UDim2.new(0, 0, 0, 24)
 creditSub.Size = UDim2.new(1, -140, 1, -28)
 creditSub.Font = Enum.Font.Gotham
-creditSub.Text = "The Aurora Panel is made by the ProfitCruiser Crew."
+creditSub.Text = "Made by ProfitCruiser"
 creditSub.TextColor3 = T.Subtle
 creditSub.TextSize = 12
 creditSub.TextWrapped = true
@@ -1276,7 +1276,7 @@ discordBtn.MouseButton1Click:Connect(function()
         success = success == true
     end
     if success then
-        creditSub.Text = "Discord-lenken er kopiert!"
+        creditSub.Text = "Discord Link Copyed"
         creditSub.TextColor3 = T.Good
     else
         creditSub.Text = "Kunne ikke kopiere automatisk — bruk lenken: " .. DISCORD_URL
